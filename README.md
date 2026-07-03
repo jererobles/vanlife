@@ -28,12 +28,17 @@ npm run deploy   # ship it
 
 ### deploy on git push (optional)
 
-Add two repo secrets in GitHub → Settings → Secrets → Actions:
+Add repo secrets in GitHub → Settings → Secrets → Actions:
 
-- `CLOUDFLARE_API_TOKEN` — an API token with the *Edit Cloudflare Workers* + *D1 Edit* permissions
+- `CLOUDFLARE_API_TOKEN` — an API token with *Workers Scripts: Edit* + *D1: Edit* permissions
 - `CLOUDFLARE_ACCOUNT_ID` — from the Cloudflare dashboard sidebar
+- `INGEST_TOKEN` (optional) — any long random string; CI keeps the worker's
+  ingest secret in sync with it, so you never have to run `wrangler secret put`
 
 Every push to `main` then deploys automatically via `.github/workflows/deploy.yml`.
+The workflow even creates the D1 database on first run if it doesn't exist yet,
+so with the secrets above you don't need to deploy from your laptop at all —
+`npm run setup` is just the local-CLI alternative.
 
 ## sending the van's location 📍
 
