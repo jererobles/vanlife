@@ -1,7 +1,8 @@
-/* 🚐💕 cozy pastel theme */
+/* 🚐💕 cozy pastel theme — daylight & dusk */
 
 :root {
   --cream: #fffaf4;
+  --card-bg: rgba(255, 250, 244, 0.92);
   --blush: #ffd9e3;
   --rose: #f4a9c7;
   --deep-rose: #e58fb1;
@@ -11,9 +12,41 @@
   --ink: #6d5a70;
   --ink-soft: #9c8aa0;
   --shadow: 0 10px 30px rgba(178, 141, 180, 0.28);
+  --chip-1: #ffd9e3;
+  --chip-2: #bfe8d4;
+  --chip-3: #ffefc1;
+  --chip-4: #ddd0f7;
+  --map-bg: #f3ecf7;
+  --tile-filter: saturate(0.72) hue-rotate(-6deg) brightness(1.05) contrast(0.9);
+}
+
+/* dusk mode 🌙 — deep plum night with the same soft pastels */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --cream: #262031;
+    --card-bg: rgba(38, 32, 49, 0.92);
+    --blush: #533c55;
+    --rose: #e58fb1;
+    --deep-rose: #f4a9c7;
+    --lavender: #a68fd8;
+    --mint: #7fc4a4;
+    --butter: #e8cf8f;
+    --ink: #ece3f2;
+    --ink-soft: #ab9ab8;
+    --shadow: 0 10px 30px rgba(10, 5, 15, 0.55);
+    --chip-1: #5a3b4a;
+    --chip-2: #2f4a3f;
+    --chip-3: #55482a;
+    --chip-4: #40365c;
+    --map-bg: #1b1724;
+    --tile-filter: saturate(0.75) brightness(0.92) hue-rotate(-8deg);
+  }
 }
 
 * { box-sizing: border-box; }
+
+/* the display rules below would otherwise beat the html hidden attribute */
+[hidden] { display: none !important; }
 
 html, body {
   margin: 0;
@@ -26,20 +59,18 @@ html, body {
 #map {
   position: fixed;
   inset: 0;
-  background: #f3ecf7;
+  background: var(--map-bg);
 }
 
 /* soften the tiles into pastel land */
-.leaflet-tile-pane {
-  filter: saturate(0.72) hue-rotate(-6deg) brightness(1.05) contrast(0.9);
-}
+.leaflet-tile-pane { filter: var(--tile-filter); }
 
 /* ------------------------------------------------------------- cards --- */
 
 .card {
   position: fixed;
   z-index: 1000;
-  background: rgba(255, 250, 244, 0.92);
+  background: var(--card-bg);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   border: 2px solid var(--blush);
@@ -115,10 +146,10 @@ html, body {
   white-space: nowrap;
 }
 
-.chip:nth-child(4n + 1) { background: var(--blush); }
-.chip:nth-child(4n + 2) { background: var(--mint); }
-.chip:nth-child(4n + 3) { background: var(--butter); }
-.chip:nth-child(4n + 4) { background: #ddd0f7; }
+.chip:nth-child(4n + 1) { background: var(--chip-1); }
+.chip:nth-child(4n + 2) { background: var(--chip-2); }
+.chip:nth-child(4n + 3) { background: var(--chip-3); }
+.chip:nth-child(4n + 4) { background: var(--chip-4); }
 
 .updated {
   margin-top: 10px;
@@ -147,11 +178,35 @@ html, body {
   font-size: 0.75rem;
   font-weight: 700;
   color: var(--ink-soft);
-  background: rgba(255, 250, 244, 0.85);
+  background: var(--card-bg);
   padding: 5px 12px;
   border-radius: 999px;
   border: 1.5px solid var(--blush);
 }
+
+/* --------------------------------------------------- floating buttons --- */
+
+.float-btn {
+  position: fixed;
+  z-index: 1000;
+  right: 14px;
+  border: 2px solid var(--blush);
+  background: var(--card-bg);
+  color: var(--ink);
+  font-family: "Quicksand", sans-serif;
+  font-weight: 700;
+  font-size: 0.85rem;
+  border-radius: 999px;
+  padding: 8px 14px;
+  cursor: pointer;
+  box-shadow: var(--shadow);
+  transition: transform 0.15s ease;
+}
+
+.float-btn:hover { transform: scale(1.06); }
+
+#recenter-btn { bottom: 108px; padding: 8px 11px; }
+#pile-btn { bottom: 156px; }
 
 /* --------------------------------------------------------- van marker --- */
 
@@ -194,12 +249,19 @@ html, body {
   height: 46px !important;
   border-radius: 14px;
   border: 3px solid #fff;
-  box-shadow: 0 4px 12px rgba(120, 80, 120, 0.35);
-  background-size: cover;
-  background-position: center;
+  box-shadow: 0 4px 12px rgba(20, 10, 25, 0.45);
+  overflow: hidden;
   transform: rotate(var(--tilt, -3deg));
   transition: transform 0.18s ease;
   cursor: pointer;
+  background: var(--blush);
+}
+
+.photo-marker img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 
 .photo-marker:hover {
@@ -226,8 +288,10 @@ html, body {
 
 .photo-pop img {
   width: 100%;
+  height: auto;
   border-radius: 12px;
   display: block;
+  background: var(--blush);
 }
 
 .photo-pop .cap {
@@ -251,6 +315,97 @@ html, body {
   margin: 0 0 2px;
 }
 
+/* -------------------------------------------------- shoebox & lightbox --- */
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  background: rgba(25, 15, 30, 0.55);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  display: grid;
+  place-items: center;
+  padding: 20px;
+}
+
+.gallery-card {
+  position: relative;
+  max-width: 620px;
+  width: 100%;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.gallery-head { display: flex; align-items: baseline; gap: 10px; }
+
+.gallery-head h2 {
+  margin: 0;
+  font-family: "Gochi Hand", cursive;
+  color: var(--deep-rose);
+  font-size: 1.4rem;
+}
+
+.gallery-head p {
+  margin: 0;
+  flex: 1;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+.close-btn {
+  border: none;
+  background: var(--blush);
+  color: var(--ink);
+  border-radius: 999px;
+  width: 28px;
+  height: 28px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.gallery-grid {
+  margin-top: 12px;
+  overflow-y: auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 10px;
+}
+
+.gallery-grid img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 12px;
+  border: 3px solid #fff;
+  box-shadow: 0 3px 10px rgba(20, 10, 25, 0.3);
+  cursor: pointer;
+  background: var(--blush);
+  transition: transform 0.15s ease;
+}
+
+.gallery-grid img:hover { transform: scale(1.05) rotate(-1.5deg); }
+
+#lightbox img {
+  max-width: min(92vw, 900px);
+  max-height: 78vh;
+  border-radius: 16px;
+  border: 5px solid #fff;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.5);
+  background: var(--blush);
+}
+
+#lightbox .cap {
+  font-family: "Gochi Hand", cursive;
+  font-size: 1.3rem;
+  color: #ffe6ef;
+  text-align: center;
+  margin: 12px 0 0;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
+}
+
 /* leaflet chrome, pastel-ified */
 .leaflet-bar a {
   background: var(--cream);
@@ -259,14 +414,18 @@ html, body {
 }
 
 .leaflet-control-attribution {
-  background: rgba(255, 250, 244, 0.8) !important;
+  background: var(--card-bg) !important;
   color: var(--ink-soft);
   font-size: 0.62rem;
   border-radius: 10px 0 0 0;
 }
 
+.leaflet-control-attribution a { color: var(--ink-soft); }
+
 @media (max-width: 640px) {
   #title-card h1 { font-size: 1.4rem; }
   #now-card { bottom: 18px; }
   #credit { display: none; }
+  #recenter-btn { bottom: 96px; }
+  #pile-btn { bottom: 144px; }
 }

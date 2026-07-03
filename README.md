@@ -86,6 +86,23 @@ caption in the album and it shows in the popup, in cute handwriting. New
 photos appear within ~10 minutes (the album feed is cached). Videos are
 skipped for now.
 
+A note on placement: Apple strips GPS data from publicly-shared albums, so
+photos are placed by *capture time*, not location. Photos taken while the
+tracker was off (e.g. from before the trip) have no matching route data and
+are left off the map rather than pinned somewhere misleading. It's fine to
+add photos to the album late — capture time is what counts.
+
+## importing older photos' GPS 🧳
+
+Photos in your camera roll keep their GPS + capture time (it's only the public
+shared-album feed that strips location). Visit **`/import.html`** on your
+deployed tracker, drop those photos in, and their coordinates become
+retroactive route points — photos are parsed entirely in the browser and never
+uploaded, only the extracted points are sent (guarded by your ingest token).
+Each backfilled point gets the weather that was actually happening at that
+time and place (Open-Meteo hourly history). Once you move the photos to the
+shared album, they'll pin to the right spots. JPEG and HEIC both work.
+
 ## making it yours 💅
 
 - `TRIP_NAME` in `wrangler.jsonc` — the handwritten title on the map
@@ -97,6 +114,7 @@ skipped for now.
 | route | what |
 | --- | --- |
 | `POST /api/ingest` | store points — Overland batches or `{lat, lon, ts?, altitude?, speed_kmh?, battery?}` |
+| `POST /api/backfill` | retroactive points `{points: [{lat, lon, ts, altitude?}]}` with historical weather |
 | `GET /api/points?limit=&since=` | route history, oldest → newest |
 | `GET /api/photos` | shared-album photos with signed URLs (cached ~10 min) |
 | `GET /api/config` | trip name + whether an album is configured |

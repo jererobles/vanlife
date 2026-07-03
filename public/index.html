@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>🚐 our little adventure</title>
   <meta name="description" content="a cozy live map of our van life adventure">
+  <meta name="theme-color" content="#fffaf4" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#262031" media="(prefers-color-scheme: dark)">
+  <meta name="color-scheme" content="light dark">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🚐</text></svg>">
   <!-- fonts + leaflet are vendored so the map loads fast even on shaky van wifi -->
   <link rel="stylesheet" href="vendor/fonts.css">
@@ -37,6 +40,27 @@
   </div>
 
   <footer id="credit">made with 💕 on the road</footer>
+
+  <button class="float-btn" id="pile-btn" hidden>🥾 shoebox</button>
+  <button class="float-btn" id="recenter-btn" title="show the whole route" aria-label="show the whole route">🧭</button>
+
+  <div class="overlay" id="gallery" hidden>
+    <div class="card gallery-card">
+      <div class="gallery-head">
+        <h2>📸 the shoebox</h2>
+        <p>album photos still waiting for their place on the route</p>
+        <button class="close-btn" id="gallery-close" aria-label="close">✕</button>
+      </div>
+      <div class="gallery-grid" id="gallery-grid"></div>
+    </div>
+  </div>
+
+  <div class="overlay" id="lightbox" hidden>
+    <div>
+      <img alt="">
+      <p class="cap"></p>
+    </div>
+  </div>
 
   <script src="vendor/leaflet.js"></script>
   <script src="app.js"></script>

@@ -4,6 +4,7 @@
 const POINTS_EVERY_MS = 60_000;
 const PHOTOS_EVERY_MS = 10 * 60_000;
 const PHOTO_MATCH_WINDOW_S = 12 * 3600; // photo must be within 12h of a track point
+const TRIP_RANGE_MARGIN_S = 30 * 60; // ...and taken during the tracked journey (± this margin)
 
 // WMO weather codes -> cozy emoji + words
 const WEATHER = [
@@ -30,10 +31,19 @@ function weatherLook(code) {
 
 const map = L.map("map", { zoomControl: false, attributionControl: true });
 L.control.zoom({ position: "bottomright" }).addTo(map);
-L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
+
+// tiles follow the system theme: sunny voyager by day, cozy dark by night 🌙
+const TILE_URLS = {
+  light: "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
+  dark: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+};
+const darkQuery = window.matchMedia("(prefers-color-scheme: dark)");
+const tileLayer = L.tileLayer(TILE_URLS[darkQuery.matches ? "dark" : "light"], {
   attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>',
   maxZoom: 20,
 }).addTo(map);
+darkQuery.addEventListener("change", (e) => tileLayer.setUrl(TILE_URLS[e.matches ? "dark" : "light"]));
+
 map.setView([54, 10], 4); // placeholder view until points arrive
 
 const routeCasing = L.polyline([], { color: "#ffffff", weight: 9, opacity: 0.9, lineCap: "round", lineJoin: "round" }).addTo(map);
@@ -178,17 +188,31 @@ function renderStats(points) {
 }
 
 let photoCount = 0;
+let unplacedPhotos = [];
 
 function renderPhotos(photos) {
   photoLayer.clearLayers();
   photoCount = 0;
+  unplacedPhotos = [];
+
+  // Apple strips GPS from public shared albums, so placement works by capture
+  // time. A photo taken outside the tracked journey has no honest spot on the
+  // route — it goes to the shoebox instead of being pinned somewhere the van
+  // merely was later.
+  const first = latestPoints[0];
+  const last = latestPoints[latestPoints.length - 1];
 
   const perSpot = new Map(); // spread photos that land on the same point
   for (const photo of photos) {
-    if (!photo.takenAt || !photo.thumb) continue;
-    const ts = Math.floor(Date.parse(photo.takenAt) / 1000);
-    const at = nearestPoint(latestPoints, ts);
-    if (!at) continue;
+    if (!photo.thumb) continue;
+    const ts = photo.takenAt ? Math.floor(Date.parse(photo.takenAt) / 1000) : null;
+    const inTrip =
+      ts && first && ts >= first.ts - TRIP_RANGE_MARGIN_S && ts <= last.ts + TRIP_RANGE_MARGIN_S;
+    const at = inTrip ? nearestPoint(latestPoints, ts) : null;
+    if (!at) {
+      unplacedPhotos.push(photo);
+      continue;
+    }
 
     const key = `${at.lat},${at.lon}`;
     const n = perSpot.get(key) || 0;
@@ -199,31 +223,39 @@ function renderPhotos(photos) {
     const lon = at.lon + Math.cos(angle) * spread;
 
     const tilt = (hashish(photo.guid) % 13) - 6;
+    // a real <img loading="lazy"> means off-screen polaroids don't download
+    // their thumbnails until you pan near them
     const icon = L.divIcon({
       className: "photo-marker",
-      html: `<div style="width:100%;height:100%;border-radius:11px;background-image:url('${photo.thumb}');background-size:cover;background-position:center"></div>`,
+      html: `<img src="${photo.thumb}" loading="lazy" decoding="async" alt="">`,
       iconSize: [46, 46],
       iconAnchor: [23, 23],
     });
 
-    const meta = [];
-    if (photo.by) meta.push(`by ${photo.by}`);
-    meta.push(fmtTime(ts));
     L.marker([lat, lon], { icon, zIndexOffset: 1000 })
-      .bindPopup(
-        `<div class="photo-pop">
-           <img src="${photo.url}" alt="">
-           ${photo.caption ? `<p class="cap">${escapeHtml(photo.caption)}</p>` : ""}
-           <p class="meta">📸 ${meta.map(escapeHtml).join(" · ")}</p>
-         </div>`,
-        { maxWidth: 260 }
-      )
+      .bindPopup(() => photoPopupHtml(photo, ts), { maxWidth: 260 })
       .addTo(photoLayer)
       .getElement()
       ?.style.setProperty("--tilt", `${tilt}deg`);
     photoCount++;
   }
   if (latestPoints.length) renderStats(latestPoints);
+  renderShoebox();
+}
+
+// built on-demand when a popup opens, so the full-size image is only
+// fetched for photos someone actually taps
+function photoPopupHtml(photo, ts) {
+  const meta = [];
+  if (photo.by) meta.push(`by ${photo.by}`);
+  meta.push(fmtTime(ts));
+  const dims =
+    photo.width && photo.height ? `width="${photo.width}" height="${photo.height}"` : "";
+  return `<div class="photo-pop">
+      <img src="${photo.url}" ${dims} decoding="async" alt="">
+      ${photo.caption ? `<p class="cap">${escapeHtml(photo.caption)}</p>` : ""}
+      <p class="meta">📸 ${meta.map(escapeHtml).join(" · ")}</p>
+    </div>`;
 }
 
 function escapeHtml(s) {
@@ -231,6 +263,56 @@ function escapeHtml(s) {
     ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])
   );
 }
+
+// ------------------------------------------------- shoebox & lightbox ---
+// album photos that can't be placed on the route live in a cozy gallery
+
+function renderShoebox() {
+  const btn = $("pile-btn");
+  btn.hidden = unplacedPhotos.length === 0;
+  if (unplacedPhotos.length) btn.textContent = `🥾 shoebox · ${unplacedPhotos.length}`;
+
+  const grid = $("gallery-grid");
+  grid.innerHTML = "";
+  for (const photo of [...unplacedPhotos].reverse()) { // newest first
+    const img = document.createElement("img");
+    img.src = photo.thumb;
+    img.loading = "lazy";
+    img.decoding = "async";
+    img.alt = photo.caption || "";
+    img.style.transform = `rotate(${(hashish(photo.guid) % 7) - 3}deg)`;
+    img.addEventListener("click", () => openLightbox(photo));
+    grid.appendChild(img);
+  }
+}
+
+function openLightbox(photo) {
+  const box = $("lightbox");
+  box.querySelector("img").src = photo.url;
+  box.querySelector(".cap").textContent =
+    [photo.caption, photo.takenAt ? fmtTime(Math.floor(Date.parse(photo.takenAt) / 1000)) : ""]
+      .filter(Boolean)
+      .join(" · ") || "💕";
+  box.hidden = false;
+}
+
+$("pile-btn").addEventListener("click", () => ($("gallery").hidden = false));
+$("gallery-close").addEventListener("click", () => ($("gallery").hidden = true));
+$("gallery").addEventListener("click", (e) => {
+  if (e.target === $("gallery")) $("gallery").hidden = true;
+});
+$("lightbox").addEventListener("click", () => ($("lightbox").hidden = true));
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") {
+    $("lightbox").hidden = true;
+    $("gallery").hidden = true;
+  }
+});
+
+// re-hug the whole route when someone wanders off across the map
+$("recenter-btn").addEventListener("click", () => {
+  if (latestPoints.length) map.fitBounds(routeLine.getBounds().pad(0.15), { maxZoom: 13 });
+});
 
 // ---------------------------------------------------------------- loops ---
 
