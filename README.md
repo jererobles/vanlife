@@ -86,6 +86,12 @@ caption in the album and it shows in the popup, in cute handwriting. New
 photos appear within ~10 minutes (the album feed is cached). Videos are
 skipped for now.
 
+A note on placement: Apple strips GPS data from publicly-shared albums, so
+photos are placed by *capture time*, not location. Photos taken while the
+tracker was off (e.g. from before the trip) have no matching route data and
+are left off the map rather than pinned somewhere misleading. It's fine to
+add photos to the album late — capture time is what counts.
+
 ## making it yours 💅
 
 - `TRIP_NAME` in `wrangler.jsonc` — the handwritten title on the map

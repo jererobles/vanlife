@@ -4,6 +4,7 @@
 const POINTS_EVERY_MS = 60_000;
 const PHOTOS_EVERY_MS = 10 * 60_000;
 const PHOTO_MATCH_WINDOW_S = 12 * 3600; // photo must be within 12h of a track point
+const TRIP_RANGE_MARGIN_S = 30 * 60; // ...and taken during the tracked journey (± this margin)
 
 // WMO weather codes -> cozy emoji + words
 const WEATHER = [
@@ -183,10 +184,17 @@ function renderPhotos(photos) {
   photoLayer.clearLayers();
   photoCount = 0;
 
+  // Apple strips GPS from public shared albums, so placement works by capture
+  // time. A photo taken outside the tracked journey has no honest spot on the
+  // route — skip it rather than pin it somewhere the van merely was later.
+  const first = latestPoints[0];
+  const last = latestPoints[latestPoints.length - 1];
+
   const perSpot = new Map(); // spread photos that land on the same point
   for (const photo of photos) {
     if (!photo.takenAt || !photo.thumb) continue;
     const ts = Math.floor(Date.parse(photo.takenAt) / 1000);
+    if (!first || ts < first.ts - TRIP_RANGE_MARGIN_S || ts > last.ts + TRIP_RANGE_MARGIN_S) continue;
     const at = nearestPoint(latestPoints, ts);
     if (!at) continue;
 

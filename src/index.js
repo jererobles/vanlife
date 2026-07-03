@@ -244,7 +244,9 @@ async function fetchSharedAlbum(token) {
       guid: p.photoGuid,
       caption: p.caption || "",
       by: p.contributorFullName || "",
-      takenAt: p.dateCreated || p.batchDateCreated || null,
+      // dateCreated is the capture time; batchDateCreated is only when it was
+      // added to the album — never use that for placing photos on the route
+      takenAt: p.dateCreated || null,
       width: Number(full.width) || null,
       height: Number(full.height) || null,
       thumbChecksum: thumb.checksum,
