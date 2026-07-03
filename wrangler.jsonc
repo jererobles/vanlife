@@ -1,0 +1,29 @@
+{
+  // cozy van-life tracker — one worker serves the API + the map UI
+  "name": "vanlife",
+  "main": "src/index.js",
+  "compatibility_date": "2025-10-01",
+  "assets": {
+    "directory": "public",
+    "binding": "ASSETS",
+    "run_worker_first": ["/api/*"]
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "vanlife",
+      // run `npm run setup` to create the database and fill this in automatically
+      "database_id": "REPLACE_ME"
+    }
+  ],
+  "vars": {
+    // shown as the big title on the map
+    "TRIP_NAME": "our little adventure",
+    // token from your public iCloud shared album link:
+    // https://www.icloud.com/sharedalbum/#B0abcdEFGhijKLM  ->  "B0abcdEFGhijKLM"
+    "ALBUM_TOKEN": "",
+    // ignore points closer together than this many seconds
+    "MIN_GAP_SECONDS": "120"
+  },
+  "observability": { "enabled": true }
+}

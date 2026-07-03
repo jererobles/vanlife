@@ -1,0 +1,16 @@
+{
+  "name": "vanlife",
+  "version": "1.0.0",
+  "private": true,
+  "description": "cozy live tracker for van life adventures 🚐💕",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler d1 execute vanlife --local --file=schema.sql && wrangler dev",
+    "deploy": "wrangler d1 execute vanlife --remote --file=schema.sql -y && wrangler deploy",
+    "setup": "node scripts/setup.mjs",
+    "seed": "node scripts/make-seed.mjs && wrangler d1 execute vanlife --local --file=scripts/seed.sql"
+  },
+  "devDependencies": {
+    "wrangler": "^4.24.0"
+  }
+}

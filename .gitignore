@@ -1,0 +1,4 @@
+node_modules/
+.wrangler/
+scripts/seed.sql
+.DS_Store
