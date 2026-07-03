@@ -4,6 +4,9 @@
   "private": true,
   "description": "cozy live tracker for van life adventures 🚐💕",
   "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "dev": "wrangler d1 execute vanlife --local --file=schema.sql && wrangler dev",
     "deploy": "wrangler d1 execute vanlife --remote --file=schema.sql -y && wrangler deploy",
