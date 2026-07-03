@@ -21,7 +21,7 @@
     "TRIP_NAME": "our little adventure",
     // token from your public iCloud shared album link:
     // https://www.icloud.com/sharedalbum/#B0abcdEFGhijKLM  ->  "B0abcdEFGhijKLM"
-    "ALBUM_TOKEN": "",
+    "ALBUM_TOKEN": "B1o5yeZFhfLjMz",
     // ignore points closer together than this many seconds
     "MIN_GAP_SECONDS": "120"
   },
