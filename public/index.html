@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>🚐 our little adventure</title>
+  <meta name="description" content="a cozy live map of our van life adventure">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🚐</text></svg>">
+  <!-- fonts + leaflet are vendored so the map loads fast even on shaky van wifi -->
+  <link rel="stylesheet" href="vendor/fonts.css">
+  <link rel="stylesheet" href="vendor/leaflet.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="map" aria-label="adventure map"></div>
+
+  <header class="card" id="title-card">
+    <h1 id="trip-name">loading…</h1>
+    <div id="stats" class="stats"></div>
+  </header>
+
+  <aside class="card" id="now-card" hidden>
+    <div class="now-top">
+      <span id="now-emoji" class="now-emoji">✨</span>
+      <div>
+        <div id="now-temp" class="now-temp"></div>
+        <div id="now-desc" class="now-desc"></div>
+      </div>
+    </div>
+    <div id="now-chips" class="chips"></div>
+    <div id="now-updated" class="updated"></div>
+  </aside>
+
+  <div class="card" id="empty-card" hidden>
+    <p class="empty-emoji">🌱🚐</p>
+    <p>no adventures logged yet…<br>the map will bloom once the van starts sending its location 💌</p>
+  </div>
+
+  <footer id="credit">made with 💕 on the road</footer>
+
+  <script src="vendor/leaflet.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
