@@ -241,9 +241,12 @@ function renderStats(points) {
 
 let photoCount = 0;
 let unplacedPhotos = [];
+const photoMarkers = new Map(); // guid -> {marker, entry:{photo, ts}, lat, lon}
+
+const PHOTO_BOX = 52; // longest side of a polaroid, px
+const PHOTO_STEM = 12; // room under the frame for the gps dot
 
 function renderPhotos(photos) {
-  photoLayer.clearLayers();
   photoCount = 0;
   unplacedPhotos = [];
 
@@ -254,6 +257,7 @@ function renderPhotos(photos) {
   const first = latestPoints[0];
   const last = latestPoints[latestPoints.length - 1];
 
+  const seen = new Set();
   const perSpot = new Map(); // spread photos that land on the same point
   for (const photo of photos) {
     if (!photo.thumb) continue;
@@ -274,23 +278,60 @@ function renderPhotos(photos) {
     const lat = at.lat + Math.sin(angle) * spread;
     const lon = at.lon + Math.cos(angle) * spread;
 
+    photoCount++;
+    seen.add(photo.guid);
+
+    // markers are kept between refreshes — recreating them every minute made
+    // the browser re-download each thumbnail whenever the signed URLs rotated
+    const kept = photoMarkers.get(photo.guid);
+    if (kept) {
+      if (kept.lat !== lat || kept.lon !== lon) {
+        kept.marker.setLatLng([lat, lon]);
+        kept.lat = lat;
+        kept.lon = lon;
+      }
+      kept.entry.photo = photo; // popup + error-retry always use the freshest URLs
+      kept.entry.ts = ts;
+      continue;
+    }
+
+    // frame sized to the photo's real aspect ratio, gps dot pinned underneath
+    let w = PHOTO_BOX, h = PHOTO_BOX;
+    if (photo.width && photo.height) {
+      const ar = photo.width / photo.height;
+      if (ar >= 1) h = Math.max(32, Math.round(PHOTO_BOX / ar));
+      else w = Math.max(32, Math.round(PHOTO_BOX * ar));
+    }
     const tilt = (hashish(photo.guid) % 13) - 6;
-    // a real <img loading="lazy"> means off-screen polaroids don't download
-    // their thumbnails until you pan near them
     const icon = L.divIcon({
       className: "photo-marker",
-      html: `<img src="${photo.thumb}" loading="lazy" decoding="async" alt="">`,
-      iconSize: [46, 46],
-      iconAnchor: [23, 23],
+      html: `<div class="frame" style="--tilt:${tilt}deg"><img src="${photo.thumb}" loading="lazy" decoding="async" alt=""></div><span class="gps-dot"></span>`,
+      iconSize: [w, h + PHOTO_STEM],
+      iconAnchor: [w / 2, h + PHOTO_STEM - 5], // the gps dot sits exactly on the spot
+      popupAnchor: [0, -(h + PHOTO_STEM)],
     });
 
-    L.marker([lat, lon], { icon, zIndexOffset: 1000 })
-      .bindPopup(() => photoPopupHtml(photo, ts), { maxWidth: 260 })
-      .addTo(photoLayer)
-      .getElement()
-      ?.style.setProperty("--tilt", `${tilt}deg`);
-    photoCount++;
+    const entry = { photo, ts };
+    const marker = L.marker([lat, lon], { icon, zIndexOffset: 1000 })
+      .bindPopup(() => photoPopupHtml(entry.photo, entry.ts), { maxWidth: 260 })
+      .addTo(photoLayer);
+    photoMarkers.set(photo.guid, { marker, entry, lat, lon });
+
+    // if a cached thumbnail's signed URL has expired, retry with the latest one
+    const img = marker.getElement()?.querySelector("img");
+    img?.addEventListener("error", () => {
+      if (img.src !== entry.photo.thumb) img.src = entry.photo.thumb;
+    });
   }
+
+  // markers whose photo left the album (or lost its spot) fade away
+  for (const [guid, kept] of photoMarkers) {
+    if (!seen.has(guid)) {
+      photoLayer.removeLayer(kept.marker);
+      photoMarkers.delete(guid);
+    }
+  }
+
   if (latestPoints.length) renderStats(latestPoints);
   renderShoebox();
 }
