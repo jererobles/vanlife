@@ -275,6 +275,35 @@ html, body {
   z-index: 10000 !important;
 }
 
+/* stacks: ghost frames peeking out behind the newest photo, plus a count */
+.photo-stack .frame.ghost {
+  background: #fff;
+  box-shadow: 0 3px 8px rgba(20, 10, 25, 0.3);
+}
+
+.photo-stack:hover .frame.ghost { transform: rotate(var(--tilt)); } /* ghosts stay tilted */
+
+.photo-stack .count {
+  position: absolute;
+  top: -7px;
+  right: -7px;
+  z-index: 5;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 5px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--deep-rose);
+  color: #fff;
+  font-family: "Quicksand", sans-serif;
+  font-size: 0.72rem;
+  font-weight: 700;
+  border: 2px solid #fff;
+  box-shadow: 0 2px 6px rgba(20, 10, 25, 0.35);
+  box-sizing: border-box;
+}
+
 .photo-marker .gps-dot {
   position: absolute;
   left: 50%;

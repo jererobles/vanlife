@@ -241,10 +241,11 @@ function renderStats(points) {
 
 let photoCount = 0;
 let unplacedPhotos = [];
-const photoMarkers = new Map(); // guid -> {marker, entry:{photo, ts}, lat, lon}
+const photoMarkers = new Map(); // cluster key -> {marker, entry, lat, lon}
 
 const PHOTO_BOX = 52; // longest side of a polaroid, px
 const PHOTO_STEM = 12; // room under the frame for the gps dot
+const CLUSTER_PX = 64; // photos closer than this on screen huddle into a stack
 
 function renderPhotos(photos) {
   photoCount = 0;
@@ -257,8 +258,7 @@ function renderPhotos(photos) {
   const first = latestPoints[0];
   const last = latestPoints[latestPoints.length - 1];
 
-  const seen = new Set();
-  const perSpot = new Map(); // spread photos that land on the same point
+  const placed = [];
   for (const photo of photos) {
     if (!photo.thumb) continue;
     const ts = photo.takenAt ? Math.floor(Date.parse(photo.takenAt) / 1000) : null;
@@ -269,71 +269,125 @@ function renderPhotos(photos) {
       unplacedPhotos.push(photo);
       continue;
     }
-
-    const key = `${at.lat},${at.lon}`;
-    const n = perSpot.get(key) || 0;
-    perSpot.set(key, n + 1);
-    const angle = (hashish(photo.guid) % 360) * (Math.PI / 180);
-    const spread = n * 0.00045;
-    const lat = at.lat + Math.sin(angle) * spread;
-    const lon = at.lon + Math.cos(angle) * spread;
-
+    placed.push({ photo, ts, lat: at.lat, lon: at.lon });
     photoCount++;
-    seen.add(photo.guid);
+  }
 
-    // markers are kept between refreshes — recreating them every minute made
-    // the browser re-download each thumbnail whenever the signed URLs rotated
-    const kept = photoMarkers.get(photo.guid);
+  // photos that would overlap at this zoom huddle into little stacks;
+  // zooming in re-clusters, so stacks naturally fall apart into polaroids
+  const zoom = map.getZoom();
+  const clusters = [];
+  for (const pl of placed) {
+    const px = map.project([pl.lat, pl.lon], zoom);
+    const home = clusters.find((c) => c.px.distanceTo(px) < CLUSTER_PX);
+    if (home) {
+      const k = home.members.length;
+      home.px = home.px.multiplyBy(k / (k + 1)).add(px.multiplyBy(1 / (k + 1)));
+      home.members.push(pl);
+    } else {
+      clusters.push({ px, members: [pl] });
+    }
+  }
+
+  const seen = new Set();
+  for (const c of clusters) {
+    c.members.sort((a, b) => a.ts - b.ts);
+    const key = c.members.map((m) => m.photo.guid).sort().join("|");
+    seen.add(key);
+    const center = map.unproject(c.px, zoom);
+    const lat = c.members.length === 1 ? c.members[0].lat : center.lat;
+    const lon = c.members.length === 1 ? c.members[0].lon : center.lng;
+
+    // same cluster as before: keep the marker (and its already-loaded images) —
+    // recreating them every refresh made the browser re-download thumbnails
+    // whenever the signed URLs rotated
+    const kept = photoMarkers.get(key);
     if (kept) {
       if (kept.lat !== lat || kept.lon !== lon) {
         kept.marker.setLatLng([lat, lon]);
         kept.lat = lat;
         kept.lon = lon;
       }
-      kept.entry.photo = photo; // popup + error-retry always use the freshest URLs
-      kept.entry.ts = ts;
+      kept.entry.members = c.members; // popups/galleries use the freshest URLs
       continue;
     }
 
-    // frame sized to the photo's real aspect ratio, gps dot pinned underneath
-    let w = PHOTO_BOX, h = PHOTO_BOX;
-    if (photo.width && photo.height) {
-      const ar = photo.width / photo.height;
-      if (ar >= 1) h = Math.max(32, Math.round(PHOTO_BOX / ar));
-      else w = Math.max(32, Math.round(PHOTO_BOX * ar));
-    }
-    const tilt = (hashish(photo.guid) % 13) - 6;
-    const icon = L.divIcon({
-      className: "photo-marker",
-      html: `<div class="frame" style="--tilt:${tilt}deg"><img src="${photo.thumb}" loading="lazy" decoding="async" alt=""></div><span class="gps-dot"></span>`,
-      iconSize: [w, h + PHOTO_STEM],
-      iconAnchor: [w / 2, h + PHOTO_STEM - 5], // the gps dot sits exactly on the spot
-      popupAnchor: [0, -(h + PHOTO_STEM)],
-    });
-
-    const entry = { photo, ts };
-    const marker = L.marker([lat, lon], { icon, zIndexOffset: 1000 })
-      .bindPopup(() => photoPopupHtml(entry.photo, entry.ts), { maxWidth: 260 })
-      .addTo(photoLayer);
-    photoMarkers.set(photo.guid, { marker, entry, lat, lon });
+    const entry = { members: c.members };
+    const marker =
+      c.members.length === 1 ? singlePhotoMarker(entry) : stackMarker(entry);
+    marker.setLatLng([lat, lon]).addTo(photoLayer);
+    photoMarkers.set(key, { marker, entry, lat, lon });
 
     // if a cached thumbnail's signed URL has expired, retry with the latest one
     const img = marker.getElement()?.querySelector("img");
     img?.addEventListener("error", () => {
-      if (img.src !== entry.photo.thumb) img.src = entry.photo.thumb;
+      const fresh = entry.members[entry.members.length - 1].photo.thumb;
+      if (img.src !== fresh) img.src = fresh;
     });
   }
 
-  // markers whose photo left the album (or lost its spot) fade away
-  for (const [guid, kept] of photoMarkers) {
-    if (!seen.has(guid)) {
+  // clusters that dissolved (zoom change, album edits) fade away
+  for (const [key, kept] of photoMarkers) {
+    if (!seen.has(key)) {
       photoLayer.removeLayer(kept.marker);
-      photoMarkers.delete(guid);
+      photoMarkers.delete(key);
     }
   }
 
   if (latestPoints.length) renderStats(latestPoints);
   renderShoebox();
+}
+
+function polaroidBox(photo) {
+  let w = PHOTO_BOX, h = PHOTO_BOX;
+  if (photo.width && photo.height) {
+    const ar = photo.width / photo.height;
+    if (ar >= 1) h = Math.max(32, Math.round(PHOTO_BOX / ar));
+    else w = Math.max(32, Math.round(PHOTO_BOX * ar));
+  }
+  return [w, h];
+}
+
+// one photo: a tilted polaroid over its gps dot, tap for the big version
+function singlePhotoMarker(entry) {
+  const m = entry.members[0];
+  const [w, h] = polaroidBox(m.photo);
+  const tilt = (hashish(m.photo.guid) % 13) - 6;
+  const icon = L.divIcon({
+    className: "photo-marker",
+    html: `<div class="frame" style="--tilt:${tilt}deg"><img src="${m.photo.thumb}" loading="lazy" decoding="async" alt=""></div><span class="gps-dot"></span>`,
+    iconSize: [w, h + PHOTO_STEM],
+    iconAnchor: [w / 2, h + PHOTO_STEM - 5], // the gps dot sits exactly on the spot
+    popupAnchor: [0, -(h + PHOTO_STEM)],
+  });
+  return L.marker([0, 0], { icon, zIndexOffset: 1000 }).bindPopup(
+    () => photoPopupHtml(entry.members[0].photo, entry.members[0].ts),
+    { maxWidth: 260 }
+  );
+}
+
+// several photos at one stop: a little pile with a count, tap for the gallery
+function stackMarker(entry) {
+  const newest = entry.members[entry.members.length - 1];
+  const [w, h] = polaroidBox(newest.photo);
+  const icon = L.divIcon({
+    className: "photo-marker photo-stack",
+    html: `
+      <div class="frame ghost" style="--tilt:9deg"></div>
+      <div class="frame ghost" style="--tilt:-8deg"></div>
+      <div class="frame" style="--tilt:-2deg"><img src="${newest.photo.thumb}" loading="lazy" decoding="async" alt=""></div>
+      <span class="count">${entry.members.length}</span>
+      <span class="gps-dot"></span>`,
+    iconSize: [w, h + PHOTO_STEM],
+    iconAnchor: [w / 2, h + PHOTO_STEM - 5],
+  });
+  return L.marker([0, 0], { icon, zIndexOffset: 1200 }).on("click", () => {
+    openGallery(
+      t("stackTitle"),
+      t("stackSub", { n: entry.members.length }),
+      entry.members.map((m) => m.photo).reverse() // newest first
+    );
+  });
 }
 
 // built on-demand when a popup opens, so the full-size image is only
@@ -364,10 +418,15 @@ function renderShoebox() {
   const btn = $("pile-btn");
   btn.hidden = unplacedPhotos.length === 0;
   if (unplacedPhotos.length) btn.textContent = t("shoebox", { n: unplacedPhotos.length });
+}
 
+// one overlay, two moods: the shoebox and "photos from this stop"
+function openGallery(title, sub, photos) {
+  $("gallery-title").textContent = title;
+  $("gallery-sub").textContent = sub;
   const grid = $("gallery-grid");
   grid.innerHTML = "";
-  for (const photo of [...unplacedPhotos].reverse()) { // newest first
+  for (const photo of photos) {
     const img = document.createElement("img");
     img.src = photo.thumb;
     img.loading = "lazy";
@@ -377,6 +436,7 @@ function renderShoebox() {
     img.addEventListener("click", () => openLightbox(photo));
     grid.appendChild(img);
   }
+  $("gallery").hidden = false;
 }
 
 function openLightbox(photo) {
@@ -389,7 +449,9 @@ function openLightbox(photo) {
   box.hidden = false;
 }
 
-$("pile-btn").addEventListener("click", () => ($("gallery").hidden = false));
+$("pile-btn").addEventListener("click", () =>
+  openGallery(t("shoeboxTitle"), t("shoeboxSub"), [...unplacedPhotos].reverse())
+);
 $("gallery-close").addEventListener("click", () => ($("gallery").hidden = true));
 $("gallery").addEventListener("click", (e) => {
   if (e.target === $("gallery")) $("gallery").hidden = true;
@@ -410,6 +472,11 @@ $("recenter-btn").addEventListener("click", () => {
 // ---------------------------------------------------------------- loops ---
 
 let cachedPhotos = [];
+
+// stacks huddle and dissolve with zoom
+map.on("zoomend", () => {
+  if (cachedPhotos.length) renderPhotos(cachedPhotos);
+});
 
 async function loadConfig() {
   try {
