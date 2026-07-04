@@ -171,8 +171,8 @@ async function addFiles(fileList) {
     row.className = "row";
     row.innerHTML = ok
       ? `<span>🌍</span><span class="name"></span>
-         <span class="where">${exif.lat.toFixed(4)}, ${exif.lon.toFixed(4)} · ${new Date(exif.ts * 1000).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</span>`
-      : `<span>🫥</span><span class="name"></span><span class="where">no GPS or time in this file</span>`;
+         <span class="where">${exif.lat.toFixed(4)}, ${exif.lon.toFixed(4)} · ${new Date(exif.ts * 1000).toLocaleString(LOCALE, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</span>`
+      : `<span>🫥</span><span class="name"></span><span class="where">${t("noGps")}</span>`;
     row.querySelector(".name").textContent = file.name;
     $("rows").appendChild(row);
   }
@@ -184,7 +184,7 @@ $("token").value = localStorage.getItem("vanlife-token") || "";
 
 $("import-btn").addEventListener("click", async () => {
   const token = $("token").value.trim();
-  if (!token) return ($("result").textContent = "🔑 the map needs its secret token first");
+  if (!token) return ($("result").textContent = t("needToken"));
   localStorage.setItem("vanlife-token", token);
 
   // sort by time and thin out near-duplicates (burst shots etc.)
@@ -198,7 +198,7 @@ $("import-btn").addEventListener("click", async () => {
   btn.disabled = true;
   let stored = 0, duplicates = 0, failed = 0;
   for (let i = 0; i < points.length; i += 15) {
-    $("result").textContent = `🚐 travelling back in time… ${i}/${points.length}`;
+    $("result").textContent = t("travelling", { i, n: points.length });
     try {
       const res = await fetch("/api/backfill", {
         method: "POST",
@@ -206,7 +206,7 @@ $("import-btn").addEventListener("click", async () => {
         body: JSON.stringify({ points: points.slice(i, i + 15) }),
       });
       if (res.status === 401) {
-        $("result").textContent = "😳 that token wasn't right — double-check it?";
+        $("result").textContent = t("badToken");
         btn.disabled = false;
         return;
       }
@@ -219,8 +219,8 @@ $("import-btn").addEventListener("click", async () => {
   }
   btn.disabled = false;
   $("result").textContent =
-    `💖 ${stored} moment${stored === 1 ? "" : "s"} added to the route!` +
-    (duplicates ? ` (${duplicates} were already there)` : "") +
-    (failed ? ` — ${failed} batch${failed === 1 ? "" : "es"} failed, try again?` : "") +
-    ` head back to the map to see them ✨`;
+    tn("added", stored) +
+    (duplicates ? t("dupes", { n: duplicates }) : "") +
+    (failed ? t("failedBatches", { n: failed }) : "") +
+    t("seeMap");
 });

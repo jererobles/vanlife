@@ -6,25 +6,25 @@ const PHOTOS_EVERY_MS = 10 * 60_000;
 const PHOTO_MATCH_WINDOW_S = 12 * 3600; // photo must be within 12h of a track point
 const TRIP_RANGE_MARGIN_S = 30 * 60; // ...and taken during the tracked journey (± this margin)
 
-// WMO weather codes -> cozy emoji + words
+// WMO weather codes -> cozy emoji + translatable words
 const WEATHER = [
-  [[0], "☀️", "sunny"],
-  [[1], "🌤️", "mostly sunny"],
-  [[2], "⛅", "partly cloudy"],
-  [[3], "☁️", "cloudy"],
-  [[45, 48], "🌫️", "foggy"],
-  [[51, 53, 55, 56, 57], "🌦️", "drizzly"],
-  [[61, 63, 65, 66, 67], "🌧️", "rainy"],
-  [[71, 73, 75, 77], "❄️", "snowy"],
-  [[80, 81, 82], "🌧️", "showers"],
-  [[85, 86], "🌨️", "snow showers"],
-  [[95, 96, 99], "⛈️", "stormy"],
+  [[0], "☀️", "w_sunny"],
+  [[1], "🌤️", "w_mostly"],
+  [[2], "⛅", "w_partly"],
+  [[3], "☁️", "w_cloudy"],
+  [[45, 48], "🌫️", "w_foggy"],
+  [[51, 53, 55, 56, 57], "🌦️", "w_drizzly"],
+  [[61, 63, 65, 66, 67], "🌧️", "w_rainy"],
+  [[71, 73, 75, 77], "❄️", "w_snowy"],
+  [[80, 81, 82], "🌧️", "w_showers"],
+  [[85, 86], "🌨️", "w_snowshowers"],
+  [[95, 96, 99], "⛈️", "w_stormy"],
 ];
 
 function weatherLook(code) {
-  if (code == null) return ["✨", "adventuring"];
-  for (const [codes, emoji, word] of WEATHER) if (codes.includes(code)) return [emoji, word];
-  return ["🌈", "mystery weather"];
+  if (code == null) return ["✨", t("w_adventuring")];
+  for (const [codes, emoji, key] of WEATHER) if (codes.includes(code)) return [emoji, t(key)];
+  return ["🌈", t("w_mystery")];
 }
 
 // ------------------------------------------------------------------ map ---
@@ -69,17 +69,17 @@ let lastPointTs = null;
 const $ = (id) => document.getElementById(id);
 
 function fmtTime(ts) {
-  return new Date(ts * 1000).toLocaleString([], {
+  return new Date(ts * 1000).toLocaleString(LOCALE, {
     month: "short", day: "numeric", hour: "numeric", minute: "2-digit",
   });
 }
 
 function timeAgo(ts) {
   const s = Math.max(0, Math.floor(Date.now() / 1000) - ts);
-  if (s < 90) return "just now";
-  if (s < 3600) return `${Math.round(s / 60)} min ago`;
-  if (s < 172800) return `${Math.round(s / 3600)} h ago`;
-  return `${Math.round(s / 86400)} days ago`;
+  if (s < 90) return t("justNow");
+  if (s < 3600) return t("minAgo", { n: Math.round(s / 60) });
+  if (s < 172800) return t("hAgo", { n: Math.round(s / 3600) });
+  return t("dAgo", { n: Math.round(s / 86400) });
 }
 
 function haversineKm(a, b) {
@@ -203,7 +203,7 @@ hitLine.on("click", (e) => {
   L.popup({ offset: [0, -4] })
     .setLatLng([p.lat, p.lon])
     .setContent(
-      `<div class="point-pop"><p class="head">🐾 along the way</p><p class="meta">${pointInfo(p)}</p></div>`
+      `<div class="point-pop"><p class="head">${t("alongTheWay")}</p><p class="meta">${pointInfo(p)}</p></div>`
     )
     .openOn(map);
 });
@@ -218,12 +218,12 @@ function renderNowCard(p) {
   if (p.ele != null) chips.push(`⛰ ${Math.round(p.ele)} m`);
   if (p.wind != null) chips.push(`🍃 ${Math.round(p.wind)} km/h`);
   if (p.hum != null) chips.push(`💧 ${Math.round(p.hum)}%`);
-  if (p.feels != null) chips.push(`🤗 feels ${Math.round(p.feels)}°`);
-  if (p.speed != null && p.speed > 2) chips.push(`🛞 cruising ${Math.round(p.speed)} km/h`);
+  if (p.feels != null) chips.push(t("feels", { n: Math.round(p.feels) }));
+  if (p.speed != null && p.speed > 2) chips.push(t("cruising", { n: Math.round(p.speed) }));
   if (p.batt != null) chips.push(`🔋 ${Math.round(p.batt)}%`);
   $("now-chips").innerHTML = chips.map((c) => `<span class="chip">${c}</span>`).join("");
 
-  $("now-updated").textContent = `last waved at us ${timeAgo(p.ts)} 💌`;
+  $("now-updated").textContent = t("updated", { t: timeAgo(p.ts) });
   $("now-card").hidden = false;
 }
 
@@ -232,10 +232,10 @@ function renderStats(points) {
   for (let i = 1; i < points.length; i++) km += haversineKm(points[i - 1], points[i]);
   const days = Math.floor((points[points.length - 1].ts - points[0].ts) / 86400) + 1;
   const parts = [
-    `🛣 ${km >= 100 ? Math.round(km).toLocaleString() : km.toFixed(1)} km`,
-    `🏕 day ${days}`,
+    t("km", { n: km >= 100 ? Math.round(km).toLocaleString(LOCALE) : km.toFixed(1) }),
+    t("day", { n: days }),
   ];
-  if (photoCount > 0) parts.push(`📸 ${photoCount} photos`);
+  if (photoCount > 0) parts.push(tn("photos", photoCount));
   $("stats").innerHTML = parts.map((s) => `<span>${s}</span>`).join("");
 }
 
@@ -299,7 +299,7 @@ function renderPhotos(photos) {
 // fetched for photos someone actually taps
 function photoPopupHtml(photo, ts) {
   const meta = [];
-  if (photo.by) meta.push(`by ${photo.by}`);
+  if (photo.by) meta.push(t("by", { name: photo.by }));
   meta.push(fmtTime(ts));
   const dims =
     photo.width && photo.height ? `width="${photo.width}" height="${photo.height}"` : "";
@@ -322,7 +322,7 @@ function escapeHtml(s) {
 function renderShoebox() {
   const btn = $("pile-btn");
   btn.hidden = unplacedPhotos.length === 0;
-  if (unplacedPhotos.length) btn.textContent = `🥾 shoebox · ${unplacedPhotos.length}`;
+  if (unplacedPhotos.length) btn.textContent = t("shoebox", { n: unplacedPhotos.length });
 
   const grid = $("gallery-grid");
   grid.innerHTML = "";
@@ -377,7 +377,7 @@ async function loadConfig() {
     document.title = `🚐 ${cfg.name}`;
     return cfg;
   } catch {
-    $("trip-name").textContent = "our little adventure";
+    $("trip-name").textContent = t("tripFallback");
     return { hasAlbum: false };
   }
 }
