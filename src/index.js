@@ -354,7 +354,8 @@ async function fetchSharedAlbum(token) {
       .filter((d) => d.checksum)
       .sort((a, b) => (Number(a.width) || 0) - (Number(b.width) || 0));
     if (!ds.length) continue;
-    const thumb = ds.find((d) => Number(d.width) >= 250) || ds[ds.length - 1];
+    // smallest real derivative — markers are tiny, so favor the lightest file
+    const thumb = ds.find((d) => Number(d.width) > 0) || ds[0];
     const full = ds[ds.length - 1];
     metas.push({
       guid: p.photoGuid,
