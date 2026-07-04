@@ -18,7 +18,7 @@
   <div id="map" aria-label="adventure map"></div>
 
   <header class="card" id="title-card">
-    <h1 id="trip-name">loading…</h1>
+    <h1 id="trip-name" data-i18n="loading">loading…</h1>
     <div id="stats" class="stats"></div>
   </header>
 
@@ -36,19 +36,19 @@
 
   <div class="card" id="empty-card" hidden>
     <p class="empty-emoji">🌱🚐</p>
-    <p>no adventures logged yet…<br>the map will bloom once the van starts sending its location 💌</p>
+    <p data-i18n-html="empty">no adventures logged yet…<br>the map will bloom once the van starts sending its location 💌</p>
   </div>
 
-  <footer id="credit">made with 💕 on the road</footer>
+  <footer id="credit" data-i18n="credit">made with 💕 on the road</footer>
 
   <button class="float-btn" id="pile-btn" hidden>🥾 shoebox</button>
-  <button class="float-btn" id="recenter-btn" title="show the whole route" aria-label="show the whole route">🧭</button>
+  <button class="float-btn" id="recenter-btn" data-i18n-title="recenter" title="show the whole route" aria-label="show the whole route">🧭</button>
 
   <div class="overlay" id="gallery" hidden>
     <div class="card gallery-card">
       <div class="gallery-head">
-        <h2>📸 the shoebox</h2>
-        <p>album photos still waiting for their place on the route</p>
+        <h2 data-i18n="shoeboxTitle">📸 the shoebox</h2>
+        <p data-i18n="shoeboxSub">album photos still waiting for their place on the route</p>
         <button class="close-btn" id="gallery-close" aria-label="close">✕</button>
       </div>
       <div class="gallery-grid" id="gallery-grid"></div>
@@ -63,6 +63,7 @@
   </div>
 
   <script src="vendor/leaflet.js"></script>
+  <script src="i18n.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

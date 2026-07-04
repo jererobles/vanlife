@@ -105,7 +105,11 @@ shared album, they'll pin to the right spots. JPEG and HEIC both work.
 
 ## making it yours 💅
 
+- the UI speaks **english, español & suomi** — picked automatically from the
+  visitor's browser language, or force one with `?lang=fi` / `?lang=es` / `?lang=en`.
+  Strings live in `public/i18n.js` if you want to add a language or tweak the tone
 - `TRIP_NAME` in `wrangler.jsonc` — the handwritten title on the map
+  (it's your own text, so it isn't auto-translated)
 - pastel palette lives in `public/style.css` (`:root` variables)
 - fonts: Quicksand + Gochi Hand, swap them in `public/index.html`
 

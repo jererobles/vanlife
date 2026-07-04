@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>🧳 the time machine</title>
+  <title data-i18n="importTitle">🧳 the time machine</title>
   <meta name="robots" content="noindex">
   <meta name="theme-color" content="#fffaf4" media="(prefers-color-scheme: light)">
   <meta name="theme-color" content="#262031" media="(prefers-color-scheme: dark)">
@@ -95,34 +95,36 @@
 <body>
   <div class="page">
     <div class="panel">
-      <h1>🧳 the time machine</h1>
+      <h1 data-i18n="importTitle">🧳 the time machine</h1>
       <p class="sub">
-        Drop photos from your camera roll and their hidden GPS + timestamps become
+        <span data-i18n-html="importSub">Drop photos from your camera roll and their hidden GPS + timestamps become
         route points, so the map remembers where you've been — even from before the
         tracker woke up. Photos are read <b>right here in your browser</b> and never
-        leave your device; only the coordinates travel. <a href="/">← back to the map</a>
+        leave your device; only the coordinates travel.</span>
+        <a href="/" data-i18n="backToMap">← back to the map</a>
       </p>
     </div>
 
     <div class="panel">
-      <label for="token">ingest token 🔑</label>
-      <input type="password" id="token" placeholder="the secret ingest token" autocomplete="off">
+      <label for="token" data-i18n="tokenLabel">ingest token 🔑</label>
+      <input type="password" id="token" data-i18n-placeholder="tokenPlaceholder" placeholder="the secret ingest token" autocomplete="off">
     </div>
 
     <div class="panel drop" id="drop">
       <span class="big">📸 ➜ 🗺️</span>
-      drop photos here, or tap to choose
+      <span data-i18n="dropHere">drop photos here, or tap to choose</span>
       <input type="file" id="file-input" accept="image/*,.heic,.HEIC" multiple hidden>
     </div>
 
     <div class="rows" id="rows"></div>
 
     <div class="panel" id="action" hidden>
-      <button class="primary" id="import-btn">✨ add these moments to the route</button>
+      <button class="primary" id="import-btn" data-i18n="importBtn">✨ add these moments to the route</button>
       <p id="result"></p>
     </div>
   </div>
 
+  <script src="i18n.js"></script>
   <script src="import.js"></script>
 </body>
 </html>
