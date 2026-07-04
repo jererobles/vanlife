@@ -406,6 +406,22 @@ html, body {
   text-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
 }
 
+/* the little tooltip that follows route hovers */
+.peek-tip {
+  background: var(--card-bg);
+  border: 2px solid var(--blush);
+  border-radius: 999px;
+  color: var(--ink);
+  font-family: "Quicksand", sans-serif;
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 5px 12px;
+  box-shadow: var(--shadow);
+  white-space: nowrap;
+}
+
+.peek-tip::before { display: none; }
+
 /* leaflet chrome, pastel-ified */
 .leaflet-bar a {
   background: var(--cream);
