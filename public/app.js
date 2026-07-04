@@ -46,9 +46,11 @@ darkQuery.addEventListener("change", (e) => tileLayer.setUrl(TILE_URLS[e.matches
 
 map.setView([54, 10], 4); // placeholder view until points arrive
 
-const routeCasing = L.polyline([], { color: "#ffffff", weight: 9, opacity: 0.9, lineCap: "round", lineJoin: "round" }).addTo(map);
-const routeLine = L.polyline([], { color: "#f4a9c7", weight: 5, opacity: 0.95, lineCap: "round", lineJoin: "round" }).addTo(map);
-const dotsLayer = L.layerGroup().addTo(map);
+const routeCasing = L.polyline([], { color: "#ffffff", weight: 9, opacity: 0.9, lineCap: "round", lineJoin: "round", interactive: false }).addTo(map);
+const routeLine = L.polyline([], { color: "#f4a9c7", weight: 5, opacity: 0.95, lineCap: "round", lineJoin: "round", interactive: false }).addTo(map);
+// invisible fat line on top of the route: an easy hover/tap target that
+// summons the nearest track point without littering the map with dots
+const hitLine = L.polyline([], { weight: 28, opacity: 0, lineCap: "round", lineJoin: "round" }).addTo(map);
 const photoLayer = L.layerGroup().addTo(map);
 
 const vanIcon = L.divIcon({
@@ -120,24 +122,7 @@ function renderPoints(points) {
   const latlngs = points.map((p) => [p.lat, p.lon]);
   routeCasing.setLatLngs(latlngs);
   routeLine.setLatLngs(latlngs);
-
-  // little dots you can poke for time/weather — decimated so the map stays snappy
-  dotsLayer.clearLayers();
-  const step = Math.max(1, Math.ceil(points.length / 300));
-  points.forEach((p, i) => {
-    if (i % step !== 0 && i !== points.length - 1) return;
-    const [emoji] = weatherLook(p.wcode);
-    const bits = [fmtTime(p.ts)];
-    if (p.temp != null) bits.push(`${Math.round(p.temp)}°C ${emoji}`);
-    if (p.ele != null) bits.push(`⛰ ${Math.round(p.ele)} m`);
-    L.circleMarker([p.lat, p.lon], {
-      radius: 4.5, color: "#fff", weight: 2, fillColor: "#cbb7f0", fillOpacity: 1,
-    })
-      .bindPopup(
-        `<div class="point-pop"><p class="head">🐾 along the way</p><p class="meta">${bits.join(" · ")}</p></div>`
-      )
-      .addTo(dotsLayer);
-  });
+  hitLine.setLatLngs(latlngs);
 
   const last = points[points.length - 1];
   const lastLL = [last.lat, last.lon];
@@ -155,6 +140,73 @@ function renderPoints(points) {
   renderNowCard(last);
   renderStats(points);
 }
+
+// ------------------------------------------------------- route peeking ---
+// hover (or tap) the route to reveal the nearest real track point; the raw
+// points stay off-screen so the map looks calm while the path stays honest
+
+const peekDot = L.circleMarker([0, 0], {
+  radius: 6, color: "#fff", weight: 2.5, fillColor: "#cbb7f0", fillOpacity: 1,
+  interactive: false,
+});
+peekDot.bindTooltip("", { direction: "top", offset: [0, -8], className: "peek-tip", opacity: 1 });
+
+// nearest track point to a latlng, in flat-ish degree space (plenty for snapping)
+function nearestPointToLatLng(ll) {
+  const cos = Math.cos((ll.lat * Math.PI) / 180);
+  let best = null, bd = Infinity;
+  for (const p of latestPoints) {
+    const dLat = p.lat - ll.lat;
+    const dLon = (p.lon - ll.lng) * cos;
+    const d = dLat * dLat + dLon * dLon;
+    if (d < bd) {
+      bd = d;
+      best = p;
+    }
+  }
+  return best;
+}
+
+function pointInfo(p) {
+  const [emoji] = weatherLook(p.wcode);
+  const bits = [fmtTime(p.ts)];
+  if (p.temp != null) bits.push(`${Math.round(p.temp)}°C ${emoji}`);
+  if (p.ele != null) bits.push(`⛰ ${Math.round(p.ele)} m`);
+  if (p.speed != null && p.speed > 2) bits.push(`🛞 ${Math.round(p.speed)} km/h`);
+  return bits.join(" · ");
+}
+
+let peekPending = false;
+hitLine.on("mousemove", (e) => {
+  if (peekPending) return; // one snap per frame is plenty
+  peekPending = true;
+  requestAnimationFrame(() => {
+    peekPending = false;
+    const p = nearestPointToLatLng(e.latlng);
+    if (!p) return;
+    peekDot.setLatLng([p.lat, p.lon]);
+    if (!map.hasLayer(peekDot)) peekDot.addTo(map);
+    peekDot.setTooltipContent(pointInfo(p));
+    peekDot.openTooltip();
+  });
+});
+
+hitLine.on("mouseout", () => {
+  if (map.hasLayer(peekDot)) map.removeLayer(peekDot);
+});
+
+// tap (mobile) or click: a sticky popup version of the same peek
+hitLine.on("click", (e) => {
+  L.DomEvent.stop(e);
+  const p = nearestPointToLatLng(e.latlng);
+  if (!p) return;
+  L.popup({ offset: [0, -4] })
+    .setLatLng([p.lat, p.lon])
+    .setContent(
+      `<div class="point-pop"><p class="head">🐾 along the way</p><p class="meta">${pointInfo(p)}</p></div>`
+    )
+    .openOn(map);
+});
 
 function renderNowCard(p) {
   const [emoji, word] = weatherLook(p.wcode);
