@@ -319,7 +319,11 @@ async function getPoints(env, url) {
 
 // ---------------------------------------------------------------- photos ---
 // Reads the public web feed of an iCloud shared album ("sharedstreams" API).
-// Asset URLs expire after a while, so we cache for only ~10 minutes.
+// Stale-while-revalidate: viewers always get an instant cached answer; a
+// background refresh keeps the signed asset URLs fresh (they expire in hours).
+
+const PHOTOS_FRESH_S = 600; // refresh in the background after this
+const PHOTOS_USABLE_S = 3 * 3600; // serve stale up to this long (URLs still valid)
 
 async function getPhotos(env, ctx, url) {
   if (!env.ALBUM_TOKEN) {
@@ -327,14 +331,25 @@ async function getPhotos(env, ctx, url) {
   }
   const cache = caches.default;
   const cacheKey = new Request(`${url.origin}/api/photos`);
-  const hit = await cache.match(cacheKey);
-  if (hit) return hit;
 
-  const data = await fetchSharedAlbum(env.ALBUM_TOKEN);
-  const res = json(data);
-  res.headers.set("Cache-Control", "public, max-age=600");
-  ctx.waitUntil(cache.put(cacheKey, res.clone()));
-  return res;
+  const refresh = async () => {
+    const data = await fetchSharedAlbum(env.ALBUM_TOKEN);
+    const res = json(data);
+    res.headers.set("Cache-Control", `public, max-age=${PHOTOS_USABLE_S}`);
+    res.headers.set("X-Fetched-At", String(Date.now()));
+    await cache.put(cacheKey, res.clone());
+    return res;
+  };
+
+  const hit = await cache.match(cacheKey);
+  if (hit) {
+    const age = (Date.now() - Number(hit.headers.get("X-Fetched-At") || 0)) / 1000;
+    if (age < PHOTOS_USABLE_S) {
+      if (age > PHOTOS_FRESH_S) ctx.waitUntil(refresh().catch(() => {}));
+      return hit;
+    }
+  }
+  return refresh();
 }
 
 async function fetchSharedAlbum(token) {
@@ -371,13 +386,15 @@ async function fetchSharedAlbum(token) {
     });
   }
 
-  // resolve checksums -> signed URLs, in chunks
+  // resolve checksums -> signed URLs; chunks fetched in parallel
   const urls = {};
   const guids = metas.map((m) => m.guid);
-  for (let i = 0; i < guids.length; i += 25) {
-    const r = await icloudPost(host, token, "webasseturls", {
-      photoGuids: guids.slice(i, i + 25),
-    });
+  const chunks = [];
+  for (let i = 0; i < guids.length; i += 25) chunks.push(guids.slice(i, i + 25));
+  const results = await Promise.all(
+    chunks.map((c) => icloudPost(host, token, "webasseturls", { photoGuids: c }))
+  );
+  for (const r of results) {
     for (const [checksum, v] of Object.entries(r.data.items || {})) {
       urls[checksum] = `https://${v.url_location}${v.url_path}`;
     }

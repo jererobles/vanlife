@@ -206,7 +206,8 @@ html, body {
 .float-btn:hover { transform: scale(1.06); }
 
 #recenter-btn { bottom: 108px; padding: 8px 11px; }
-#pile-btn { bottom: 156px; }
+#van-btn { bottom: 156px; padding: 8px 11px; }
+#pile-btn { bottom: 204px; }
 
 /* --------------------------------------------------------- van marker --- */
 
@@ -260,12 +261,34 @@ html, body {
   transition: transform 0.18s ease;
 }
 
+/* soft shimmer while a thumbnail is on its way */
+@keyframes shimmer {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+
+.photo-marker .frame {
+  background-image: linear-gradient(100deg, transparent 30%, rgba(255, 255, 255, 0.55) 50%, transparent 70%);
+  background-size: 200% 100%;
+  animation: shimmer 1.8s linear infinite;
+}
+
+.photo-marker .frame:has(img.loaded),
+.photo-marker .frame.ghost {
+  animation: none;
+  background-image: none;
+}
+
 .photo-marker img {
   width: 100%;
   height: 100%;
   object-fit: cover;
   display: block;
+  opacity: 0;
+  transition: opacity 0.35s ease;
 }
+
+.photo-marker img.loaded { opacity: 1; }
 
 .photo-marker:hover .frame {
   transform: rotate(0deg) scale(1.3);
@@ -437,6 +460,14 @@ html, body {
 
 .gallery-grid img:hover { transform: scale(1.05) rotate(-1.5deg); }
 
+.gallery-grid img.shimmer,
+.photo-pop img,
+#lightbox img {
+  background-image: linear-gradient(100deg, var(--blush) 30%, rgba(255, 255, 255, 0.6) 50%, var(--blush) 70%);
+  background-size: 200% 100%;
+  animation: shimmer 1.8s linear infinite;
+}
+
 #lightbox img {
   max-width: min(92vw, 900px);
   max-height: 78vh;
@@ -492,5 +523,6 @@ html, body {
   #now-card { bottom: 18px; }
   #credit { display: none; }
   #recenter-btn { bottom: 96px; }
-  #pile-btn { bottom: 144px; }
+  #van-btn { bottom: 144px; }
+  #pile-btn { bottom: 192px; }
 }

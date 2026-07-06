@@ -27,6 +27,7 @@ const I18N = {
     stackTitle: "📸 this stop",
     stackSub: "{n} little moments from the same spot",
     recenter: "show the whole route",
+    vanBtn: "jump to the van",
     // weather words
     w_sunny: "sunny", w_mostly: "mostly sunny", w_partly: "partly cloudy", w_cloudy: "cloudy",
     w_foggy: "foggy", w_drizzly: "drizzly", w_rainy: "rainy", w_snowy: "snowy",
@@ -75,6 +76,7 @@ const I18N = {
     stackTitle: "📸 esta parada",
     stackSub: "{n} momentitos del mismo lugar",
     recenter: "ver toda la ruta",
+    vanBtn: "ir a la furgo",
     w_sunny: "soleado", w_mostly: "casi despejado", w_partly: "parcialmente nublado", w_cloudy: "nublado",
     w_foggy: "con niebla", w_drizzly: "llovizna", w_rainy: "lluvioso", w_snowy: "nevando",
     w_showers: "chubascos", w_snowshowers: "chubascos de nieve", w_stormy: "tormenta",
@@ -121,6 +123,7 @@ const I18N = {
     stackTitle: "📸 tämä pysähdys",
     stackSub: "{n} pientä hetkeä samasta paikasta",
     recenter: "näytä koko reitti",
+    vanBtn: "hyppää pakun luo",
     w_sunny: "aurinkoista", w_mostly: "enimmäkseen aurinkoista", w_partly: "puolipilvistä", w_cloudy: "pilvistä",
     w_foggy: "sumuista", w_drizzly: "tihkusadetta", w_rainy: "sateista", w_snowy: "lumisadetta",
     w_showers: "sadekuuroja", w_snowshowers: "lumikuuroja", w_stormy: "ukkostaa",
