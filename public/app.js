@@ -59,6 +59,7 @@ const vanIcon = L.divIcon({
   iconSize: [40, 40],
   iconAnchor: [20, 20],
 });
+const VAN_ZOOM = 12; // the "where are they right now" zoom
 let vanMarker = null;
 let didFitOnce = false;
 let latestPoints = [];
@@ -130,7 +131,7 @@ function renderPoints(points) {
   else vanMarker.setLatLng(lastLL);
 
   if (!didFitOnce) {
-    map.fitBounds(routeLine.getBounds().pad(0.15), { maxZoom: 13 });
+    map.setView(lastLL, VAN_ZOOM); // open right where the van is
     didFitOnce = true;
   } else if (lastPointTs !== null && last.ts !== lastPointTs) {
     map.panTo(lastLL); // gently follow when a fresh point arrives
@@ -318,12 +319,17 @@ function renderPhotos(photos) {
     marker.setLatLng([lat, lon]).addTo(photoLayer);
     photoMarkers.set(key, { marker, entry, lat, lon });
 
-    // if a cached thumbnail's signed URL has expired, retry with the latest one
+    // fade in once loaded (the frame shimmers until then), and if a cached
+    // signed URL has expired, retry with the latest one
     const img = marker.getElement()?.querySelector("img");
-    img?.addEventListener("error", () => {
-      const fresh = entry.members[entry.members.length - 1].photo.thumb;
-      if (img.src !== fresh) img.src = fresh;
-    });
+    if (img) {
+      if (img.complete && img.naturalWidth) img.classList.add("loaded");
+      else img.addEventListener("load", () => img.classList.add("loaded"));
+      img.addEventListener("error", () => {
+        const fresh = entry.members[entry.members.length - 1].photo.thumb;
+        if (img.src !== fresh) img.src = fresh;
+      });
+    }
   }
 
   // clusters that dissolved (zoom change, album edits) fade away
@@ -428,11 +434,13 @@ function openGallery(title, sub, photos) {
   grid.innerHTML = "";
   for (const photo of photos) {
     const img = document.createElement("img");
+    img.className = "shimmer";
     img.src = photo.thumb;
     img.loading = "lazy";
     img.decoding = "async";
     img.alt = photo.caption || "";
     img.style.transform = `rotate(${(hashish(photo.guid) % 7) - 3}deg)`;
+    img.addEventListener("load", () => img.classList.remove("shimmer"));
     img.addEventListener("click", () => openLightbox(photo));
     grid.appendChild(img);
   }
@@ -467,6 +475,13 @@ document.addEventListener("keydown", (e) => {
 // re-hug the whole route when someone wanders off across the map
 $("recenter-btn").addEventListener("click", () => {
   if (latestPoints.length) map.fitBounds(routeLine.getBounds().pad(0.15), { maxZoom: 13 });
+});
+
+// fly home to wherever the van is right now
+$("van-btn").addEventListener("click", () => {
+  if (!latestPoints.length) return;
+  const last = latestPoints[latestPoints.length - 1];
+  map.flyTo([last.lat, last.lon], VAN_ZOOM, { duration: 1.2 });
 });
 
 // ---------------------------------------------------------------- loops ---
@@ -511,12 +526,14 @@ async function loadPhotos() {
 }
 
 (async () => {
-  const cfg = await loadConfig();
+  // fire everything at once — photos render as soon as the route is in
+  // (harmless no-op response if no album is configured)
+  const cfgP = loadConfig();
+  const photosP = loadPhotos();
   await loadPoints();
-  if (cfg.hasAlbum) {
-    await loadPhotos();
-    setInterval(loadPhotos, PHOTOS_EVERY_MS);
-  }
+  await photosP;
+  const cfg = await cfgP;
+  if (cfg.hasAlbum) setInterval(loadPhotos, PHOTOS_EVERY_MS);
   setInterval(loadPoints, POINTS_EVERY_MS);
   // keep "last waved at us" fresh
   setInterval(() => {
