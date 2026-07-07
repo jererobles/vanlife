@@ -5,9 +5,9 @@
 import world from "./data/countries-110m.json";
 
 const MOVING_KMH = 8; // slower than this between points = not driving
-const GAP_S = 45 * 60; // a logging gap this big breaks streaks
+const GAP_S = 110 * 60; // a logging gap this big breaks streaks
 const STOP_RADIUS_KM = 0.4; // wiggle allowed while "stopped"
-const MIN_STOP_S = 45 * 60; // shorter pauses aren't stops, just traffic
+const MIN_STOP_S = 110 * 60; // shorter pauses aren't stops, just traffic
 const GEOCODED_STOPS = 8; // only the longest stops get a place name
 
 export async function statsHandler(env, ctx, url) {
