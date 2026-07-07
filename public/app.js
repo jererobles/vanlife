@@ -505,9 +505,11 @@ $("stats-overlay").addEventListener("click", (e) => {
 });
 
 function fmtDur(seconds) {
-  const d = Math.floor(seconds / 86400);
-  const h = Math.floor((seconds % 86400) / 3600);
-  const m = Math.round((seconds % 3600) / 60);
+  let m = Math.round(seconds / 60); // round first so 2h59m30s can't become "2 h 60 min"
+  const d = Math.floor(m / 1440);
+  m -= d * 1440;
+  const h = Math.floor(m / 60);
+  m -= h * 60;
   if (d > 0) return `${d} ${t("u_d")} ${h} ${t("u_h")}`;
   if (h > 0) return `${h} ${t("u_h")} ${m} ${t("u_min")}`;
   return `${m} ${t("u_min")}`;

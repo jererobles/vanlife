@@ -5,10 +5,11 @@
 import world from "./data/countries-110m.json";
 
 const MOVING_KMH = 8; // slower than this between points = not driving
-const GAP_S = 110 * 60; // a logging gap this big breaks streaks
-const STOP_RADIUS_KM = 10; // wiggle allowed while "stopped"
-const MIN_STOP_S = 110 * 60; // shorter pauses aren't stops, just traffic
+const GAP_S = 45 * 60; // a logging gap this big breaks streaks
+const STOP_RADIUS_KM = 0.4; // wiggle allowed while "stopped"
+const MIN_STOP_S = 45 * 60; // shorter pauses aren't stops, just traffic
 const GEOCODED_STOPS = 8; // only the longest stops get a place name
+const COAST_MARGIN_DEG = 0.5; // ~55 km — how far offshore a point may sit and still snap to land
 
 export async function statsHandler(env, ctx, url) {
   const cache = caches.default;
@@ -96,16 +97,16 @@ function computeStats(pts) {
       drive = null;
     }
 
-    // time per country, attributed to where the interval started; logging
-    // gaps are skipped — we don't know where the van was in between
-    if (!gap) {
-      const c = countryAt(a.lat, a.lon);
-      if (c) {
-        const e = countries.get(c) || { seconds: 0, km: 0 };
-        e.seconds += dt;
-        e.km += km;
-        countries.set(c, e);
-      }
+    // time per country, attributed to where the interval started. Logging
+    // gaps (overnight camps, dead zones) still count when the gap starts and
+    // ends in the same country — the van was clearly there the whole time.
+    // Gaps that cross a border (e.g. a ferry) stay unattributed.
+    const c = countryAt(a.lat, a.lon);
+    if (c && (!gap || countryAt(b.lat, b.lon) === c)) {
+      const e = countries.get(c) || { seconds: 0, km: 0 };
+      e.seconds += dt;
+      e.km += km;
+      countries.set(c, e);
     }
 
     const day = new Date(a.ts * 1000).toISOString().slice(0, 10);
@@ -206,8 +207,52 @@ function countryAt(lat, lon) {
       break;
     }
   }
+
+  // Coastal fallback: at 110m resolution shorelines cut corners, so points on
+  // real land (archipelagos, bridges, harbour roads) can fall "into the sea".
+  // Snap them to the nearest border within COAST_MARGIN_DEG.
+  if (!found) {
+    const cosLat = Math.cos((lat * Math.PI) / 180);
+    let bd = COAST_MARGIN_DEG ** 2;
+    for (const f of FEATURES) {
+      const bb = f.bbox;
+      if (
+        lat < bb[1] - COAST_MARGIN_DEG || lat > bb[3] + COAST_MARGIN_DEG ||
+        lon < bb[0] - COAST_MARGIN_DEG / cosLat || lon > bb[2] + COAST_MARGIN_DEG / cosLat
+      )
+        continue;
+      const d = distSqToPolys(f.polygons, lon, lat, cosLat);
+      if (d < bd) {
+        bd = d;
+        found = f.name;
+      }
+    }
+  }
+
   cellCache.set(cell, found);
   return found;
+}
+
+// squared distance (in latitude-degrees²) from a point to the closest border
+// segment, with longitudes scaled so degrees are comparable
+function distSqToPolys(polys, x, y, cosLat) {
+  let best = Infinity;
+  const px = x * cosLat;
+  for (const rings of polys) {
+    for (const r of rings) {
+      for (let i = 1; i < r.length; i++) {
+        const ax = r[i - 1][0] * cosLat, ay = r[i - 1][1];
+        const bx = r[i][0] * cosLat, by = r[i][1];
+        const dx = bx - ax, dy = by - ay;
+        const len2 = dx * dx + dy * dy;
+        const t = len2 ? Math.max(0, Math.min(1, ((px - ax) * dx + (y - ay) * dy) / len2)) : 0;
+        const ex = ax + t * dx - px, ey = ay + t * dy - y;
+        const d = ex * ex + ey * ey;
+        if (d < best) best = d;
+      }
+    }
+  }
+  return best;
 }
 
 function decodeTopo(topo) {
