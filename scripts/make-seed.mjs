@@ -1,66 +1,90 @@
 #!/usr/bin/env node
-// generates scripts/seed.sql — a pretend 3-day drive from Munich toward Lake Garda,
-// so `npm run dev` has something cute to show. local dev only.
+// generates scripts/seed.sql — a pretend alpine road trip with realistic
+// driving dynamics (morning + afternoon drives ~60 km/h, lunch stops,
+// overnight camps), so `npm run dev` exercises stats/stops/streaks. local only.
 
 import { writeFileSync } from "node:fs";
 
-const HOURS = 66;
-const STEP_MIN = 20;
+const DAYS = 3.5;
 const now = Math.floor(Date.now() / 1000);
-const start = now - HOURS * 3600;
+const start = now - Math.round(DAYS * 86400);
 
-// a handful of waypoints (lat, lon, rough elevation m)
+// waypoints (lat, lon, rough elevation m): munich -> riva del garda
 const waypoints = [
-  [48.135, 11.582, 520],   // munich
-  [47.876, 11.343, 640],   // starnberg-ish
-  [47.567, 11.096, 900],   // garmisch approach
-  [47.425, 10.985, 1200],  // alpine pass
-  [47.253, 11.393, 580],   // innsbruck
-  [47.005, 11.507, 1370],  // brenner
-  [46.716, 11.656, 560],   // brixen
-  [46.498, 11.354, 260],   // bolzano
-  [46.138, 11.072, 200],   // trento
-  [45.884, 10.843, 90],    // riva del garda 💙
+  [48.135, 11.582, 520],
+  [47.876, 11.343, 640],
+  [47.567, 11.096, 900],
+  [47.425, 10.985, 1200],
+  [47.253, 11.393, 580],
+  [47.005, 11.507, 1370],
+  [46.716, 11.656, 560],
+  [46.498, 11.354, 260],
+  [46.138, 11.072, 200],
+  [45.884, 10.843, 90],
 ];
 
-function lerp(a, b, t) { return a + (b - a) * t; }
+// cumulative km along the waypoint chain
+function hav(a, b) {
+  const R = 6371, rad = Math.PI / 180;
+  const dLat = (b[0] - a[0]) * rad, dLon = (b[1] - a[1]) * rad;
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(a[0] * rad) * Math.cos(b[0] * rad) * Math.sin(dLon / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(h));
+}
+const cum = [0];
+for (let i = 1; i < waypoints.length; i++) cum.push(cum[i - 1] + hav(waypoints[i - 1], waypoints[i]));
+const ROUTE_KM = cum[cum.length - 1];
 
-const rows = [];
-const total = Math.floor((HOURS * 60) / STEP_MIN);
-for (let i = 0; i <= total; i++) {
-  const t = i / total;
-  const seg = Math.min(waypoints.length - 2, Math.floor(t * (waypoints.length - 1)));
-  const local = t * (waypoints.length - 1) - seg;
-  const [a, b] = [waypoints[seg], waypoints[seg + 1]];
-
-  // wiggle so it looks like a road, not a ruler
-  const wiggle = Math.sin(i * 1.7) * 0.002 + Math.sin(i * 0.41) * 0.004;
-  const lat = lerp(a[0], b[0], local) + wiggle * 0.6;
-  const lon = lerp(b[1], a[1], 1 - local) + wiggle;
-  const ele = Math.round(lerp(a[2], b[2], local) + Math.sin(i * 0.9) * 25);
-
-  const ts = start + i * STEP_MIN * 60;
-  const hourOfDay = new Date(ts * 1000).getUTCHours() + 1;
-  const daytime = hourOfDay >= 7 && hourOfDay <= 21;
-
-  // overnight camp stops: park the van 22:00–08:00
-  if (!daytime && i !== total) {
-    if (hourOfDay === 22) rows.push({ ts, lat, lon, ele, parked: true });
-    continue;
-  }
-
-  rows.push({ ts, lat, lon, ele, parked: false });
+const lerp = (a, b, t) => a + (b - a) * t;
+function posAt(km) {
+  const k = Math.min(km, ROUTE_KM - 0.001);
+  let i = 1;
+  while (cum[i] < k) i++;
+  const t = (k - cum[i - 1]) / (cum[i] - cum[i - 1]);
+  const [a, b] = [waypoints[i - 1], waypoints[i]];
+  return [lerp(a[0], b[0], t), lerp(a[1], b[1], t), lerp(a[2], b[2], t)];
 }
 
-const values = rows.map((r, i) => {
-  const temp = (18 - r.ele / 150 + Math.sin(i * 0.35) * 4).toFixed(1);
+// minute-by-minute simulation: drive 9:00-11:30 & 13:00-15:30 local-ish,
+// otherwise hang out; logger sleeps overnight
+const rows = [];
+let dist = 0;
+let lastEmit = 0;
+for (let ts = start; ts <= now; ts += 60) {
+  const hour = new Date(ts * 1000).getUTCHours() + new Date(ts * 1000).getUTCMinutes() / 60 + 1;
+  const driving =
+    dist < ROUTE_KM && ((hour >= 9 && hour < 11.5) || (hour >= 13 && hour < 15.5));
+  const awake = hour >= 7 && hour < 22;
+  if (!awake) continue;
+
+  let speed = 0;
+  if (driving) {
+    speed = 58 + Math.sin(ts / 900) * 18 + Math.sin(ts / 240) * 6; // 34-82 km/h
+    dist += speed / 60;
+  }
+  const emitEvery = driving ? 180 : 1800;
+  if (ts - lastEmit < emitEvery) continue;
+  lastEmit = ts;
+
+  const wig = Math.sin(dist * 0.8) * 0.004;
+  const [lat, lon, ele] = posAt(dist);
+  rows.push({
+    ts,
+    lat: lat + wig * 0.5,
+    lon: lon + wig,
+    ele: Math.round(ele + Math.sin(dist) * 20),
+    speed: Math.round(speed),
+    i: rows.length,
+  });
+}
+
+const values = rows.map((r) => {
+  const temp = (19 - r.ele / 160 + Math.sin(r.i * 0.3) * 4).toFixed(1);
   const feels = (temp - 1.2).toFixed(1);
-  const hum = Math.round(55 + Math.sin(i * 0.5) * 20);
-  const wind = (8 + Math.abs(Math.sin(i * 0.23)) * 14).toFixed(1);
-  const wcode = [0, 0, 1, 1, 2, 2, 3, 61][Math.abs(Math.round(Math.sin(i * 2.1) * 7))] ?? 1;
-  const speed = r.parked ? 0 : Math.round(40 + Math.sin(i) * 25);
-  const batt = Math.round(60 + Math.sin(i * 0.1) * 35);
-  return `(${r.ts}, ${r.lat.toFixed(6)}, ${r.lon.toFixed(6)}, ${r.ele}, ${temp}, ${feels}, ${hum}, ${wind}, ${wcode}, ${speed}, ${batt})`;
+  const hum = Math.round(55 + Math.sin(r.i * 0.5) * 20);
+  const wind = (8 + Math.abs(Math.sin(r.i * 0.23)) * 14).toFixed(1);
+  const wcode = [0, 0, 1, 1, 2, 2, 3, 61][Math.abs(Math.round(Math.sin(r.i * 2.1) * 7))] ?? 1;
+  const batt = Math.round(60 + Math.sin(r.i * 0.1) * 35);
+  return `(${r.ts}, ${r.lat.toFixed(6)}, ${r.lon.toFixed(6)}, ${r.ele}, ${temp}, ${feels}, ${hum}, ${wind}, ${wcode}, ${r.speed}, ${batt})`;
 });
 
 const sql = `-- generated by scripts/make-seed.mjs — cute fake alpine road trip
@@ -70,4 +94,4 @@ ${values.join(",\n")};
 `;
 
 writeFileSync(new URL("./seed.sql", import.meta.url), sql);
-console.log(`🌱 wrote scripts/seed.sql with ${values.length} points`);
+console.log(`🌱 wrote scripts/seed.sql with ${values.length} points (${Math.round(ROUTE_KM)} km route)`);

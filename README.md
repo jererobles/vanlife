@@ -121,6 +121,7 @@ shared album, they'll pin to the right spots. JPEG and HEIC both work.
 | `POST /api/backfill` | retroactive points `{points: [{lat, lon, ts, altitude?}]}` with historical weather |
 | `GET /api/points?limit=&since=` | route history, oldest → newest |
 | `GET /api/photos` | shared-album photos with signed URLs (cached ~10 min) |
+| `GET /api/stats` | trip statistics: streaks, stops, per-country time, records (cached 5 min) |
 | `GET /api/config` | trip name + whether an album is configured |
 
 The map is public by design — anyone with the link can see it. Only ingesting

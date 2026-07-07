@@ -42,6 +42,7 @@
   <footer id="credit" data-i18n="credit">made with 💕 on the road</footer>
 
   <button class="float-btn" id="pile-btn" hidden>🥾 shoebox</button>
+  <button class="float-btn" id="stats-btn" data-i18n-title="statsBtn" title="trip stats" aria-label="trip stats">📊</button>
   <button class="float-btn" id="van-btn" data-i18n-title="vanBtn" title="jump to the van" aria-label="jump to the van">🚐</button>
   <button class="float-btn" id="recenter-btn" data-i18n-title="recenter" title="show the whole route" aria-label="show the whole route">🧭</button>
 
@@ -53,6 +54,17 @@
         <button class="close-btn" id="gallery-close" aria-label="close">✕</button>
       </div>
       <div class="gallery-grid" id="gallery-grid"></div>
+    </div>
+  </div>
+
+  <div class="overlay" id="stats-overlay" hidden>
+    <div class="card gallery-card">
+      <div class="gallery-head">
+        <h2 data-i18n="statsTitle">✨ little numbers</h2>
+        <p data-i18n="statsSub">what the road has been whispering</p>
+        <button class="close-btn" id="stats-close" aria-label="close">✕</button>
+      </div>
+      <div class="stats-body" id="stats-body"></div>
     </div>
   </div>
 

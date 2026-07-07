@@ -469,6 +469,7 @@ document.addEventListener("keydown", (e) => {
   if (e.key === "Escape") {
     $("lightbox").hidden = true;
     $("gallery").hidden = true;
+    $("stats-overlay").hidden = true;
   }
 });
 
@@ -476,6 +477,109 @@ document.addEventListener("keydown", (e) => {
 $("recenter-btn").addEventListener("click", () => {
   if (latestPoints.length) map.fitBounds(routeLine.getBounds().pad(0.15), { maxZoom: 13 });
 });
+
+// ---------------------------------------------------------- stats panel ---
+// little numbers from the road, computed by the worker from the raw track
+
+let statsCache = null, statsCachedAt = 0;
+
+$("stats-btn").addEventListener("click", async () => {
+  $("stats-overlay").hidden = false;
+  const body = $("stats-body");
+  if (!statsCache || Date.now() - statsCachedAt > 5 * 60_000) {
+    body.innerHTML = `<p class="stats-empty">🧮 …</p>`;
+    try {
+      statsCache = await (await fetch("/api/stats")).json();
+      statsCachedAt = Date.now();
+    } catch {
+      body.innerHTML = `<p class="stats-empty">🌫️</p>`;
+      return;
+    }
+  }
+  renderStatsPanel(statsCache);
+});
+
+$("stats-close").addEventListener("click", () => ($("stats-overlay").hidden = true));
+$("stats-overlay").addEventListener("click", (e) => {
+  if (e.target === $("stats-overlay")) $("stats-overlay").hidden = true;
+});
+
+function fmtDur(seconds) {
+  const d = Math.floor(seconds / 86400);
+  const h = Math.floor((seconds % 86400) / 3600);
+  const m = Math.round((seconds % 3600) / 60);
+  if (d > 0) return `${d} ${t("u_d")} ${h} ${t("u_h")}`;
+  if (h > 0) return `${h} ${t("u_h")} ${m} ${t("u_min")}`;
+  return `${m} ${t("u_min")}`;
+}
+
+function fmtDay(ts) {
+  return new Date(ts * 1000).toLocaleDateString(LOCALE, { month: "short", day: "numeric" });
+}
+
+const flagEmoji = (iso2) =>
+  iso2 ? String.fromCodePoint(...[...iso2].map((c) => 0x1f1a5 + c.charCodeAt(0))) : "🏳️";
+
+function renderStatsPanel(s) {
+  const body = $("stats-body");
+  if (!s || !s.totalKm) {
+    body.innerHTML = `<p class="stats-empty">🌱 …</p>`;
+    return;
+  }
+
+  const tile = (emoji, value, label, sub) =>
+    `<div class="stat-tile"><div class="v">${emoji} ${value}</div><div class="l">${label}</div>${
+      sub ? `<div class="s">${sub}</div>` : ""
+    }</div>`;
+
+  const tiles = [];
+  tiles.push(tile("🛣", `${s.totalKm.toLocaleString(LOCALE)} km`, t("stTotal"), t("stTotalSub", { n: s.movingHours })));
+  if (s.longestDrive)
+    tiles.push(
+      tile("🏁", fmtDur(s.longestDrive.seconds), t("stLongestDrive"),
+        `${Math.round(s.longestDrive.km)} km · ${fmtDay(s.longestDrive.startTs)}`)
+    );
+  if (s.longestStop)
+    tiles.push(
+      tile("🛌", fmtDur(s.longestStop.seconds), t("stLongestStop"),
+        `${s.longestStop.place ? escapeHtml(s.longestStop.place) + " · " : ""}${fmtDay(s.longestStop.startTs)}`)
+    );
+  if (s.topSpeed)
+    tiles.push(tile("🚀", `${s.topSpeed.kmh} km/h`, t("stFastest"), fmtDay(s.topSpeed.ts)));
+  if (s.avgMovingKmh) tiles.push(tile("🌊", `${s.avgMovingKmh} km/h`, t("stAvg"), t("stAvgSub")));
+  if (s.topCity)
+    tiles.push(tile("🏙", escapeHtml(s.topCity.name), t("stTopCity"), fmtDur(s.topCity.seconds)));
+  if (s.highest)
+    tiles.push(tile("🏔", `${Math.round(s.highest.ele)} m`, t("stHighest"), fmtDay(s.highest.ts)));
+  if (s.hottest)
+    tiles.push(tile("🥵", `${Math.round(s.hottest.temp)}°C`, t("stHottest"), fmtDay(s.hottest.ts)));
+  if (s.coldest)
+    tiles.push(tile("🥶", `${Math.round(s.coldest.temp)}°C`, t("stColdest"), fmtDay(s.coldest.ts)));
+  if (s.northernmost)
+    tiles.push(
+      tile("🧭", `${s.northernmost.lat.toFixed(2)}°N`, t("stNorth"), fmtDay(s.northernmost.ts))
+    );
+  tiles.push(
+    tile("🏕", `${s.chillDays}`, t("stChill"), t("stChillSub", { n: s.driveDays }))
+  );
+
+  let html = `<div class="stat-tiles">${tiles.join("")}</div>`;
+
+  if (s.countries?.length) {
+    html += `<p class="stats-section">${t("stCountries")}</p>`;
+    html += s.countries
+      .map(
+        (c) =>
+          `<div class="country-row"><span class="flag">${flagEmoji(c.iso2)}</span>
+           <span class="cname">${escapeHtml(c.name)}</span>
+           <span class="ckm">${c.km.toLocaleString(LOCALE)} km</span>
+           <span class="ctime">${fmtDur(c.seconds)}</span></div>`
+      )
+      .join("");
+  }
+
+  body.innerHTML = html;
+}
 
 // fly home to wherever the van is right now
 $("van-btn").addEventListener("click", () => {
