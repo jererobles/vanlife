@@ -6,6 +6,8 @@
 //   GET  /api/photos   public iCloud shared album, cached ~10 min
 //   GET  /api/config   trip name etc. for the frontend
 
+import { statsHandler } from "./stats.js";
+
 const WEATHER_CURRENT =
   "temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m";
 
@@ -33,6 +35,7 @@ function handleApi(request, env, ctx, url) {
   if (pathname === "/api/backfill" && method === "POST") return backfill(request, env, url);
   if (pathname === "/api/points" && method === "GET") return getPoints(env, url);
   if (pathname === "/api/photos" && method === "GET") return getPhotos(env, ctx, url);
+  if (pathname === "/api/stats" && method === "GET") return statsHandler(env, ctx, url);
   if (pathname === "/api/config" && method === "GET") {
     return json({
       name: env.TRIP_NAME || "our little adventure",

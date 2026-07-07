@@ -207,7 +207,8 @@ html, body {
 
 #recenter-btn { bottom: 108px; padding: 8px 11px; }
 #van-btn { bottom: 156px; padding: 8px 11px; }
-#pile-btn { bottom: 204px; }
+#stats-btn { bottom: 204px; padding: 8px 11px; }
+#pile-btn { bottom: 252px; }
 
 /* --------------------------------------------------------- van marker --- */
 
@@ -486,6 +487,81 @@ html, body {
   text-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
 }
 
+/* ------------------------------------------------------- stats panel --- */
+
+.stats-body {
+  margin-top: 12px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.stat-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+}
+
+.stat-tile {
+  background: var(--cream);
+  border: 1.5px solid var(--blush);
+  border-radius: 16px;
+  padding: 10px 14px;
+}
+
+.stat-tile .v {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--deep-rose);
+  line-height: 1.2;
+}
+
+.stat-tile .l {
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: var(--ink);
+  margin-top: 1px;
+}
+
+.stat-tile .s {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+  margin-top: 2px;
+}
+
+.stats-section {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--ink-soft);
+  margin: 2px 0 -6px;
+}
+
+.country-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  background: var(--cream);
+  border: 1.5px solid var(--blush);
+  border-radius: 14px;
+  padding: 7px 14px;
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
+.country-row .flag { font-size: 1.1rem; }
+.country-row .cname { flex: 1; color: var(--ink); }
+.country-row .ctime { color: var(--deep-rose); }
+.country-row .ckm { font-size: 0.72rem; font-weight: 600; color: var(--ink-soft); }
+
+.stats-empty {
+  text-align: center;
+  font-weight: 600;
+  color: var(--ink-soft);
+  padding: 18px 0;
+}
+
 /* the little tooltip that follows route hovers */
 .peek-tip {
   background: var(--card-bg);
@@ -524,5 +600,6 @@ html, body {
   #credit { display: none; }
   #recenter-btn { bottom: 96px; }
   #van-btn { bottom: 144px; }
-  #pile-btn { bottom: 192px; }
+  #stats-btn { bottom: 192px; }
+  #pile-btn { bottom: 240px; }
 }
