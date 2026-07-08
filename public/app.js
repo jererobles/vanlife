@@ -51,6 +51,7 @@ const routeLine = L.polyline([], { color: "#f4a9c7", weight: 5, opacity: 0.95, l
 // invisible fat line on top of the route: an easy hover/tap target that
 // summons the nearest track point without littering the map with dots
 const hitLine = L.polyline([], { weight: 28, opacity: 0, lineCap: "round", lineJoin: "round" }).addTo(map);
+const stayLayer = L.layerGroup().addTo(map);
 const photoLayer = L.layerGroup().addTo(map);
 
 const vanIcon = L.divIcon({
@@ -140,6 +141,88 @@ function renderPoints(points) {
 
   renderNowCard(last);
   renderStats(points);
+  renderStays(points);
+}
+
+// ----------------------------------------------------- overnight stays ---
+// spots where the van stayed put through the night get a little moon.
+// Same stop detection as the worker's stats (consecutive points that stay
+// within a small circle); "overnight" means the stay covers ~3am local
+// sun time — longitude/15 gives the offset, no timezone tables needed.
+
+const STAY_RADIUS_KM = 0.4;
+const NIGHT_ANCHOR_S = 3 * 3600; // ~3am, deepest-sleep o'clock
+
+function nightsIn(stay) {
+  const offset = (stay.lon / 15) * 3600;
+  const a = Math.floor((stay.startTs + offset - NIGHT_ANCHOR_S) / 86400);
+  const b = Math.floor((stay.endTs + offset - NIGHT_ANCHOR_S) / 86400);
+  return Math.max(0, b - a);
+}
+
+function computeStays(points) {
+  const raw = [];
+  let s = null;
+  for (const p of points) {
+    if (s && haversineKm(s, p) <= STAY_RADIUS_KM) s.endTs = p.ts;
+    else {
+      if (s) raw.push(s);
+      s = { lat: p.lat, lon: p.lon, startTs: p.ts, endTs: p.ts };
+    }
+  }
+  if (s) raw.push(s);
+
+  // keep the ones that cover a night, folding repeat visits into one spot
+  const stays = [];
+  for (const r of raw) {
+    const nights = nightsIn(r);
+    if (!nights) continue;
+    const spot = stays.find((x) => haversineKm(x, r) <= STAY_RADIUS_KM);
+    if (spot) {
+      spot.nights += nights;
+      spot.visits.push({ startTs: r.startTs, nights });
+    } else {
+      stays.push({ lat: r.lat, lon: r.lon, nights, visits: [{ startTs: r.startTs, nights }] });
+    }
+  }
+  return stays;
+}
+
+const stayMarkers = new Map(); // "lat,lon" -> {marker, nights}
+
+function renderStays(points) {
+  const seen = new Set();
+  for (const st of computeStays(points)) {
+    const key = `${st.lat.toFixed(4)},${st.lon.toFixed(4)}`;
+    seen.add(key);
+    const kept = stayMarkers.get(key);
+    if (kept && kept.nights === st.nights) continue; // same spot, same story
+    if (kept) stayLayer.removeLayer(kept.marker);
+
+    const icon = L.divIcon({
+      className: "stay-marker",
+      html: `<span class="moon">🌙</span>${
+        st.nights > 1 ? `<span class="count">${st.nights}</span>` : ""
+      }`,
+      iconSize: [30, 30],
+      iconAnchor: [15, 15],
+      popupAnchor: [0, -16],
+    });
+    const marker = L.marker([st.lat, st.lon], { icon, zIndexOffset: 500 }).bindPopup(() => {
+      const lines = st.visits.map((v) => `⛺ ${fmtDay(v.startTs)} · ${tn("nights", v.nights)}`);
+      return `<div class="point-pop"><p class="head">🌙 ${t("stayTitle")}</p><p class="meta">${lines.join("<br>")}</p></div>`;
+    });
+    marker.addTo(stayLayer);
+    stayMarkers.set(key, { marker, nights: st.nights });
+  }
+
+  // spots that fell off the visible window (or got re-clustered) fade away
+  for (const [key, kept] of stayMarkers) {
+    if (!seen.has(key)) {
+      stayLayer.removeLayer(kept.marker);
+      stayMarkers.delete(key);
+    }
+  }
 }
 
 // ------------------------------------------------------- route peeking ---
