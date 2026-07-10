@@ -195,7 +195,7 @@ function renderStays(points) {
 
     const icon = L.divIcon({
       className: "stay-marker",
-      html: `<span class="moon">🌙</span>${
+      html: `<span class="moon">⛺️</span>${
         st.nights > 1 ? `<span class="count">${st.nights}</span>` : ""
       }`,
       iconSize: [30, 30],
