@@ -23,7 +23,10 @@
     // https://www.icloud.com/sharedalbum/#B0abcdEFGhijKLM  ->  "B0abcdEFGhijKLM"
     "ALBUM_TOKEN": "B1o5yeZFhfLjMz",
     // ignore points closer together than this many seconds
-    "MIN_GAP_SECONDS": "120"
+    "MIN_GAP_SECONDS": "120",
+    // the treat jar: a PayPal.me / Buy Me a Coffee / Ko-fi link. PayPal.me
+    // links get the treat's price appended automatically. "" hides the jar.
+    "TIP_URL": ""
   },
   "observability": { "enabled": true }
 }

@@ -547,12 +547,56 @@ document.addEventListener("keydown", (e) => {
     $("lightbox").hidden = true;
     $("gallery").hidden = true;
     $("stats-overlay").hidden = true;
+    $("tip-overlay").hidden = true;
   }
 });
 
 // re-hug the whole route when someone wanders off across the map
 $("recenter-btn").addEventListener("click", () => {
   if (latestPoints.length) map.fitBounds(routeLine.getBounds().pad(0.15), { maxZoom: 13 });
+});
+
+// -------------------------------------------------------------- tip jar ---
+// a tip jar with a promise: whatever treat someone buys us, we actually buy
+// it wherever the van happens to be, and post a polaroid to the album with
+// their name on it. The menu is just suggestions wired to the payment link.
+
+const TREATS = [
+  ["☕", "t_coffee", 3],
+  ["🍦", "t_icecream", 5],
+  ["🍺", "t_beer", 6],
+  ["🥐", "t_pastry", 8],
+  ["🧺", "t_picnic", 15],
+  ["⛽", "t_diesel", 20],
+  ["🧖", "t_sauna", 25],
+];
+
+function setupTipJar(tipUrl) {
+  if (!tipUrl) return;
+  const grid = $("treat-grid");
+  grid.innerHTML = "";
+  for (const [emoji, key, eur] of TREATS) {
+    const a = document.createElement("a");
+    a.className = "treat";
+    a.target = "_blank";
+    a.rel = "noopener";
+    // paypal.me links can carry the amount; other jars open as-is
+    a.href = /paypal\.me/i.test(tipUrl)
+      ? `${tipUrl.replace(/\/+$/, "")}/${eur}EUR`
+      : tipUrl;
+    a.innerHTML = `<span class="t-emoji">${emoji}</span><span class="t-name">${t(key)}</span><span class="t-price">€${eur}</span>`;
+    grid.appendChild(a);
+  }
+  const btn = $("tip-btn");
+  btn.textContent = `🫙 ${t("tipBtn")}`;
+  btn.title = t("tipTitle");
+  btn.hidden = false;
+}
+
+$("tip-btn").addEventListener("click", () => ($("tip-overlay").hidden = false));
+$("tip-close").addEventListener("click", () => ($("tip-overlay").hidden = true));
+$("tip-overlay").addEventListener("click", (e) => {
+  if (e.target === $("tip-overlay")) $("tip-overlay").hidden = true;
 });
 
 // ---------------------------------------------------------- stats panel ---
@@ -714,6 +758,7 @@ async function loadPhotos() {
   await loadPoints();
   await photosP;
   const cfg = await cfgP;
+  setupTipJar(cfg.tipUrl);
   if (cfg.hasAlbum) setInterval(loadPhotos, PHOTOS_EVERY_MS);
   setInterval(loadPoints, POINTS_EVERY_MS);
   // keep "last waved at us" fresh

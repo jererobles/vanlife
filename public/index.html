@@ -41,6 +41,7 @@
 
   <footer id="credit" data-i18n="credit">made with 💕 on the road</footer>
 
+  <button class="float-btn" id="tip-btn" hidden>🫙</button>
   <button class="float-btn" id="pile-btn" hidden>🥾 shoebox</button>
   <button class="float-btn" id="stats-btn" data-i18n-title="statsBtn" title="trip stats" aria-label="trip stats">📊</button>
   <button class="float-btn" id="van-btn" data-i18n-title="vanBtn" title="jump to the van" aria-label="jump to the van">🚐</button>
@@ -65,6 +66,19 @@
         <button class="close-btn" id="stats-close" aria-label="close">✕</button>
       </div>
       <div class="stats-body" id="stats-body"></div>
+    </div>
+  </div>
+
+  <div class="overlay" id="tip-overlay" hidden>
+    <div class="card gallery-card">
+      <div class="gallery-head">
+        <h2 data-i18n="tipTitle">🫙 the treat jar</h2>
+        <p data-i18n="tipSub">a tip jar with a twist</p>
+        <button class="close-btn" id="tip-close" aria-label="close">✕</button>
+      </div>
+      <p class="tip-promise" data-i18n-html="tipPromise"></p>
+      <div class="treat-grid" id="treat-grid"></div>
+      <p class="tip-note" data-i18n="tipNote"></p>
     </div>
   </div>
 

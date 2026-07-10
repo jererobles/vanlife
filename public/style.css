@@ -209,6 +209,7 @@ html, body {
 #van-btn { bottom: 156px; padding: 8px 11px; }
 #stats-btn { bottom: 204px; padding: 8px 11px; }
 #pile-btn { bottom: 252px; }
+#tip-btn { bottom: 300px; }
 
 /* --------------------------------------------------------- van marker --- */
 
@@ -530,6 +531,54 @@ html, body {
   text-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
 }
 
+/* ----------------------------------------------------------- tip jar --- */
+
+.tip-promise {
+  margin: 12px 0 0;
+  font-size: 0.86rem;
+  font-weight: 600;
+  line-height: 1.55;
+}
+
+.tip-promise b { color: var(--deep-rose); }
+
+.treat-grid {
+  margin-top: 12px;
+  overflow-y: auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 10px;
+}
+
+.treat {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--cream);
+  border: 1.5px solid var(--blush);
+  border-radius: 16px;
+  padding: 10px 12px;
+  text-decoration: none;
+  color: var(--ink);
+  transition: transform 0.15s ease, border-color 0.15s ease;
+}
+
+.treat:hover {
+  transform: scale(1.04) rotate(-1deg);
+  border-color: var(--rose);
+}
+
+.treat .t-emoji { font-size: 1.5rem; }
+.treat .t-name { flex: 1; font-size: 0.8rem; font-weight: 700; }
+.treat .t-price { font-weight: 700; color: var(--deep-rose); }
+
+.tip-note {
+  margin: 12px 0 0;
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
 /* ------------------------------------------------------- stats panel --- */
 
 .stats-body {
@@ -645,4 +694,5 @@ html, body {
   #van-btn { bottom: 144px; }
   #stats-btn { bottom: 192px; }
   #pile-btn { bottom: 240px; }
+  #tip-btn { bottom: 288px; }
 }
