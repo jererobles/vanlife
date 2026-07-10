@@ -145,45 +145,39 @@ function renderPoints(points) {
 }
 
 // ----------------------------------------------------- overnight stays ---
-// spots where the van stayed put through the night get a little moon.
-// Same stop detection as the worker's stats (consecutive points that stay
-// within a small circle); "overnight" means the stay covers ~3am local
-// sun time — longitude/15 gives the offset, no timezone tables needed.
+// spots where the van slept get a little moon. The tracker usually goes
+// quiet at night, so each night is found between CONSECUTIVE points: when
+// a pair spans ~3am local sun time (longitude/15 gives the offset, no
+// timezone tables), the camp is the earlier point — the last thing the
+// tracker said that day. Driving straight through the night doesn't count:
+// a 3am pair mid-drive has a short gap AND real distance between points.
 
-const STAY_RADIUS_KM = 0.4;
+const STAY_RADIUS_KM = 0.4; // same-spot wiggle room
 const NIGHT_ANCHOR_S = 3 * 3600; // ~3am, deepest-sleep o'clock
-
-function nightsIn(stay) {
-  const offset = (stay.lon / 15) * 3600;
-  const a = Math.floor((stay.startTs + offset - NIGHT_ANCHOR_S) / 86400);
-  const b = Math.floor((stay.endTs + offset - NIGHT_ANCHOR_S) / 86400);
-  return Math.max(0, b - a);
-}
+const NIGHT_GAP_MIN_S = 3 * 3600; // tracker silent this long = resting, not rolling
 
 function computeStays(points) {
-  const raw = [];
-  let s = null;
-  for (const p of points) {
-    if (s && haversineKm(s, p) <= STAY_RADIUS_KM) s.endTs = p.ts;
-    else {
-      if (s) raw.push(s);
-      s = { lat: p.lat, lon: p.lon, startTs: p.ts, endTs: p.ts };
-    }
-  }
-  if (s) raw.push(s);
-
-  // keep the ones that cover a night, folding repeat visits into one spot
   const stays = [];
-  for (const r of raw) {
-    const nights = nightsIn(r);
-    if (!nights) continue;
-    const spot = stays.find((x) => haversineKm(x, r) <= STAY_RADIUS_KM);
-    if (spot) {
-      spot.nights += nights;
-      spot.visits.push({ startTs: r.startTs, nights });
-    } else {
-      stays.push({ lat: r.lat, lon: r.lon, nights, visits: [{ startTs: r.startTs, nights }] });
+  for (let i = 1; i < points.length; i++) {
+    const a = points[i - 1], b = points[i];
+    const offset = (a.lon / 15) * 3600;
+    const aIdx = Math.floor((a.ts + offset - NIGHT_ANCHOR_S) / 86400);
+    const bIdx = Math.floor((b.ts + offset - NIGHT_ANCHOR_S) / 86400);
+    if (bIdx <= aIdx) continue; // no 3am passed between these two points
+    if (b.ts - a.ts < NIGHT_GAP_MIN_S && haversineKm(a, b) > STAY_RADIUS_KM) continue; // night drive
+
+    const nights = bIdx - aIdx; // a multi-day silence = several nights here
+    const spot = stays.find((x) => haversineKm(x, a) <= STAY_RADIUS_KM);
+    if (!spot) {
+      stays.push({ lat: a.lat, lon: a.lon, nights, lastIdx: bIdx, visits: [{ startTs: a.ts, nights }] });
+      continue;
     }
+    spot.nights += nights;
+    // back-to-back nights at the same spot are one visit; a return trip
+    // weeks later gets its own line in the popup
+    if (aIdx === spot.lastIdx) spot.visits[spot.visits.length - 1].nights += nights;
+    else spot.visits.push({ startTs: a.ts, nights });
+    spot.lastIdx = bIdx;
   }
   return stays;
 }
