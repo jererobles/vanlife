@@ -76,11 +76,13 @@ function computeStats(pts) {
     const v = dt > 0 ? (km / dt) * 3600 : 0;
     totalKm += km;
 
-    // fastest moment: trust the device speed; fall back to positional speed
-    // over honest intervals (short spans amplify GPS jitter)
+    // fastest moment: trust the device speed; positional speed only fills in
+    // when neither endpoint reported one — a stale fix (old position, fresh
+    // timestamp) makes the interval look far faster than the device ever went
     if (b.speed != null && b.speed < 250 && b.speed > (topSpeed?.kmh || 0))
       topSpeed = { kmh: b.speed, ts: b.ts };
-    if (!gap && dt >= 120 && v < 200 && v > (topSpeed?.kmh || 0)) topSpeed = { kmh: v, ts: b.ts };
+    if (a.speed == null && b.speed == null && !gap && dt >= 120 && v < 200 && v > (topSpeed?.kmh || 0))
+      topSpeed = { kmh: v, ts: b.ts };
 
     const isMoving = !gap && v >= MOVING_KMH;
     if (isMoving) {
