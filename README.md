@@ -103,6 +103,16 @@ Each backfilled point gets the weather that was actually happening at that
 time and place (Open-Meteo hourly history). Once you move the photos to the
 shared album, they'll pin to the right spots. JPEG and HEIC both work.
 
+## adding missing points by hand 🧵
+
+Sometimes the tracker naps through a whole scenic detour. Visit **`/add.html`**,
+tap the map where the van really went, and each tap becomes a route point —
+draggable to fine-tune, with a timestamp guessed by interpolating along the
+surrounding route (editable if the guess is off). A dotted preview shows how
+the route will flow before you commit. Saving requires your ingest token and
+goes through `POST /api/backfill`, so every stitched-in point also gets the
+weather that was actually happening at that time and place.
+
 ## making it yours 💅
 
 - the UI speaks **english, español & suomi** — picked automatically from the
