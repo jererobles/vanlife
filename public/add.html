@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title data-i18n="addTitle">🧵 stitch the route</title>
+  <meta name="robots" content="noindex">
+  <meta name="theme-color" content="#fffaf4" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#262031" media="(prefers-color-scheme: dark)">
+  <meta name="color-scheme" content="light dark">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🧵</text></svg>">
+  <link rel="stylesheet" href="vendor/fonts.css">
+  <link rel="stylesheet" href="vendor/leaflet.css">
+  <link rel="stylesheet" href="style.css">
+  <style>
+    #panel {
+      top: 16px;
+      left: 16px;
+      width: min(360px, calc(100vw - 32px));
+      max-height: calc(100dvh - 32px);
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding: 18px 20px;
+    }
+    /* on phones the panel becomes a little bottom sheet so the map stays roomy */
+    @media (max-width: 640px) {
+      #panel {
+        top: auto;
+        left: 8px;
+        right: 8px;
+        bottom: 8px;
+        width: auto;
+        max-height: 48dvh;
+      }
+    }
+    h1 {
+      margin: 0;
+      font-family: "Gochi Hand", cursive;
+      font-size: 1.7rem;
+      color: var(--deep-rose);
+      text-shadow: 2px 2px 0 var(--blush);
+    }
+    .sub { margin: 0; font-size: 0.82rem; font-weight: 600; color: var(--ink-soft); line-height: 1.5; }
+    .sub a { color: var(--deep-rose); }
+    label { font-size: 0.8rem; font-weight: 700; color: var(--ink-soft); }
+    input[type="password"] {
+      width: 100%;
+      border: 2px solid var(--blush);
+      border-radius: 14px;
+      background: var(--cream);
+      color: var(--ink);
+      font-family: "Quicksand", sans-serif;
+      font-weight: 600;
+      padding: 9px 14px;
+      font-size: 0.9rem;
+    }
+    .hint { margin: 0; font-size: 0.84rem; font-weight: 700; color: var(--ink-soft); }
+    .rows { display: flex; flex-direction: column; gap: 8px; }
+    .row {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      align-items: center;
+      gap: 3px 10px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      background: var(--cream);
+      border: 1.5px solid var(--blush);
+      border-radius: 14px;
+      padding: 7px 10px;
+    }
+    .row .idx {
+      display: grid;
+      place-items: center;
+      width: 22px;
+      height: 22px;
+      background: var(--rose);
+      color: #fff;
+      border-radius: 50%;
+      font-size: 0.75rem;
+      font-weight: 700;
+      flex: none;
+    }
+    .row input[type="datetime-local"] {
+      flex: 1;
+      min-width: 150px;
+      border: 1.5px solid var(--blush);
+      border-radius: 10px;
+      background: var(--card-bg);
+      color: var(--ink);
+      font-family: "Quicksand", sans-serif;
+      font-weight: 600;
+      font-size: 0.78rem;
+      padding: 4px 8px;
+    }
+    .row .where { grid-column: 2 / 4; color: var(--ink-soft); white-space: nowrap; font-size: 0.72rem; }
+    .row .x {
+      border: none;
+      background: none;
+      color: var(--ink-soft);
+      font-size: 0.9rem;
+      cursor: pointer;
+      padding: 2px 6px;
+      border-radius: 8px;
+    }
+    .row .x:hover { color: var(--deep-rose); background: var(--blush); }
+    .primary {
+      border: none;
+      background: var(--rose);
+      color: #fff;
+      font-family: "Quicksand", sans-serif;
+      font-weight: 700;
+      font-size: 0.95rem;
+      border-radius: 999px;
+      padding: 11px 20px;
+      cursor: pointer;
+      box-shadow: var(--shadow);
+      transition: transform 0.15s ease;
+    }
+    .primary:hover:enabled { transform: scale(1.03); }
+    .primary:disabled { opacity: 0.5; cursor: default; }
+    #result { margin: 0; font-size: 0.84rem; font-weight: 700; }
+    #result:empty { display: none; }
+    /* numbered candy-drop markers for the new points */
+    .new-pt span {
+      display: grid;
+      place-items: center;
+      width: 26px;
+      height: 26px;
+      background: var(--rose);
+      color: #fff;
+      border: 2.5px solid #fff;
+      border-radius: 50%;
+      font-family: "Quicksand", sans-serif;
+      font-size: 0.78rem;
+      font-weight: 700;
+      box-shadow: 0 4px 10px rgba(120, 90, 130, 0.45);
+      cursor: grab;
+    }
+  </style>
+</head>
+<body>
+  <div id="map" aria-label="route map"></div>
+
+  <section class="card" id="panel">
+    <h1 data-i18n="addTitle">🧵 stitch the route</h1>
+    <p class="sub" data-i18n-html="addSub"></p>
+    <p class="sub">
+      <a href="/" data-i18n="backToMap">← back to the map</a> ·
+      <a href="/import.html" data-i18n="addLinkImport">🧳 got photos from the gap? use the time machine</a>
+    </p>
+    <label for="token" data-i18n="tokenLabel">ingest token 🔑</label>
+    <input type="password" id="token" data-i18n-placeholder="tokenPlaceholder" placeholder="the secret ingest token" autocomplete="off">
+    <p class="hint" id="hint" data-i18n="addHint">tap the map to drop your first point ✨</p>
+    <div class="rows" id="rows"></div>
+    <button class="primary" id="save-btn" data-i18n="addBtn" disabled>✨ stitch these into the route</button>
+    <p id="result"></p>
+  </section>
+
+  <script src="vendor/leaflet.js"></script>
+  <script src="i18n.js"></script>
+  <script src="add.js"></script>
+</body>
+</html>
