@@ -621,9 +621,9 @@ function renderStatsPanel(s) {
       tile("🛌", fmtDur(s.longestStop.seconds), t("stLongestStop"),
         `${s.longestStop.place ? escapeHtml(s.longestStop.place) + " · " : ""}${fmtDay(s.longestStop.startTs)}`)
     );
-  if (s.topSpeed)
+  /* if (s.topSpeed)
     tiles.push(tile("🚀", `${s.topSpeed.kmh} km/h`, t("stFastest"), fmtDay(s.topSpeed.ts)));
-  if (s.avgMovingKmh) tiles.push(tile("🌊", `${s.avgMovingKmh} km/h`, t("stAvg"), t("stAvgSub")));
+  if (s.avgMovingKmh) tiles.push(tile("🌊", `${s.avgMovingKmh} km/h`, t("stAvg"), t("stAvgSub"))); */
   if (s.topCity)
     tiles.push(tile("🏙", escapeHtml(s.topCity.name), t("stTopCity"), fmtDur(s.topCity.seconds)));
   if (s.highest)
@@ -632,10 +632,10 @@ function renderStatsPanel(s) {
     tiles.push(tile("🥵", `${Math.round(s.hottest.temp)}°C`, t("stHottest"), fmtDay(s.hottest.ts)));
   if (s.coldest)
     tiles.push(tile("🥶", `${Math.round(s.coldest.temp)}°C`, t("stColdest"), fmtDay(s.coldest.ts)));
-  if (s.northernmost)
+  /* if (s.northernmost)
     tiles.push(
       tile("🧭", `${s.northernmost.lat.toFixed(2)}°N`, t("stNorth"), fmtDay(s.northernmost.ts))
-    );
+    ); */
   tiles.push(
     tile("🏕", `${s.chillDays}`, t("stChill"), t("stChillSub", { n: s.driveDays }))
   );
