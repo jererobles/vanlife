@@ -208,7 +208,8 @@ html, body {
 #recenter-btn { bottom: 108px; padding: 8px 11px; }
 #van-btn { bottom: 156px; padding: 8px 11px; }
 #stats-btn { bottom: 204px; padding: 8px 11px; }
-#pile-btn { bottom: 252px; }
+#play-btn { bottom: 252px; padding: 8px 11px; }
+#pile-btn { bottom: 300px; }
 
 /* --------------------------------------------------------- van marker --- */
 
@@ -242,6 +243,60 @@ html, body {
 @keyframes bob {
   0%, 100% { transform: translateY(0); }
   50%      { transform: translateY(-3px); }
+}
+
+/* trip over: the van is parked — no pulse, no bobbing, just resting */
+.van-icon.parked::before { display: none; }
+.van-icon.parked .van-emoji { animation: none; }
+
+/* ------------------------------------------------ start & end markers --- */
+
+/* green sprout where it all began, red flag where the journey ended */
+.trip-marker { cursor: pointer; }
+
+.trip-marker .badge {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 14px;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  box-shadow: 0 3px 8px rgba(20, 10, 25, 0.3);
+  transition: transform 0.15s ease;
+}
+
+.trip-marker:hover .badge { transform: scale(1.2); }
+.trip-marker:hover { z-index: 9000 !important; }
+
+.trip-start .badge { background: #8fd6a4; }
+.trip-end .badge { background: #f08a9b; }
+
+/* the finish flag floats above the parked van on a little pole */
+.trip-end .badge::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  width: 2px;
+  height: 10px;
+  margin-left: -1px;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(20, 10, 25, 0.3);
+}
+
+/* ----------------------------------------------------------- playback --- */
+
+#playback-chip {
+  bottom: 26px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 8px 16px;
+  border-radius: 999px;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--deep-rose);
+  white-space: nowrap;
 }
 
 /* --------------------------------------------------- overnight marker --- */
@@ -644,5 +699,7 @@ html, body {
   #recenter-btn { bottom: 96px; }
   #van-btn { bottom: 144px; }
   #stats-btn { bottom: 192px; }
-  #pile-btn { bottom: 240px; }
+  #play-btn { bottom: 240px; }
+  #pile-btn { bottom: 288px; }
+  #playback-chip { bottom: 18px; }
 }

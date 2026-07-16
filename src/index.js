@@ -40,6 +40,7 @@ function handleApi(request, env, ctx, url) {
     return json({
       name: env.TRIP_NAME || "our little adventure",
       hasAlbum: Boolean(env.ALBUM_TOKEN),
+      ended: env.TRIP_ENDED === "true",
     });
   }
   return json({ error: "not found" }, 404);

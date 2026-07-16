@@ -19,6 +19,9 @@
   "vars": {
     // shown as the big title on the map
     "TRIP_NAME": "our little adventure",
+    // set to "true" once the journey is over: the map shows start/end markers,
+    // the van stops pulsing, and a little replay button appears
+    "TRIP_ENDED": "true",
     // token from your public iCloud shared album link:
     // https://www.icloud.com/sharedalbum/#B0abcdEFGhijKLM  ->  "B0abcdEFGhijKLM"
     "ALBUM_TOKEN": "B1o5yeZFhfLjMz",
