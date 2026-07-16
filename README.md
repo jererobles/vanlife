@@ -120,6 +120,10 @@ weather that was actually happening at that time and place.
   Strings live in `public/i18n.js` if you want to add a language or tweak the tone
 - `TRIP_NAME` in `wrangler.jsonc` — the handwritten title on the map
   (it's your own text, so it isn't auto-translated)
+- `TRIP_ENDED` in `wrangler.jsonc` — set it to `"true"` when the journey is
+  over: the route gets a green start & red end marker, the van parks (no more
+  pulsing), the map opens on the whole story, and a ▶️ button replays the
+  entire trip — the van drives the route while photos pop up along the way
 - pastel palette lives in `public/style.css` (`:root` variables)
 - fonts: Quicksand + Gochi Hand, swap them in `public/index.html`
 

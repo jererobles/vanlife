@@ -54,17 +54,20 @@ const hitLine = L.polyline([], { weight: 28, opacity: 0, lineCap: "round", lineJ
 const stayLayer = L.layerGroup().addTo(map);
 const photoLayer = L.layerGroup().addTo(map);
 
-const vanIcon = L.divIcon({
-  className: "van-icon",
-  html: '<span class="van-emoji">🚐</span>',
-  iconSize: [40, 40],
-  iconAnchor: [20, 20],
-});
+// once the trip is over the van parks (no pulsing ring — it's not going anywhere)
+const makeVanIcon = () =>
+  L.divIcon({
+    className: "van-icon" + (tripEnded ? " parked" : ""),
+    html: '<span class="van-emoji">🚐</span>',
+    iconSize: [40, 40],
+    iconAnchor: [20, 20],
+  });
 const VAN_ZOOM = 12; // the "where are they right now" zoom
 let vanMarker = null;
 let didFitOnce = false;
 let latestPoints = [];
 let lastPointTs = null;
+let tripEnded = false; // set from /api/config before the first render
 
 // -------------------------------------------------------------- helpers ---
 
@@ -117,6 +120,7 @@ function hashish(str) {
 // -------------------------------------------------------------- renders ---
 
 function renderPoints(points) {
+  if (playback.active) return; // the replay owns the map for a moment
   latestPoints = points;
   $("empty-card").hidden = points.length > 0;
   if (!points.length) return;
@@ -128,20 +132,68 @@ function renderPoints(points) {
 
   const last = points[points.length - 1];
   const lastLL = [last.lat, last.lon];
-  if (!vanMarker) vanMarker = L.marker(lastLL, { icon: vanIcon, zIndexOffset: 2000 }).addTo(map);
+  if (!vanMarker) vanMarker = L.marker(lastLL, { icon: makeVanIcon(), zIndexOffset: 2000 }).addTo(map);
   else vanMarker.setLatLng(lastLL);
 
   if (!didFitOnce) {
-    map.setView(lastLL, VAN_ZOOM); // open right where the van is
+    // a finished trip opens as the whole story; a live one opens on the van
+    if (tripEnded) map.fitBounds(routeLine.getBounds().pad(0.15), { maxZoom: 13 });
+    else map.setView(lastLL, VAN_ZOOM);
     didFitOnce = true;
-  } else if (lastPointTs !== null && last.ts !== lastPointTs) {
+  } else if (!tripEnded && lastPointTs !== null && last.ts !== lastPointTs) {
     map.panTo(lastLL); // gently follow when a fresh point arrives
   }
   lastPointTs = last.ts;
 
+  $("play-btn").hidden = points.length < 2;
+  renderTripEnds(points);
   renderNowCard(last);
   renderStats(points);
   renderStays(points);
+}
+
+// ---------------------------------------------------- start & end flags ---
+// once the trip is over, the route gets bookends: a green "it all began
+// here" sprout and a red finish flag planted just above the parked van
+
+let startMarker = null;
+let endMarker = null;
+
+function tripEndPopup(emoji, key, ts) {
+  return `<div class="point-pop"><p class="head">${emoji} ${t(key)}</p><p class="meta">${fmtTime(ts)}</p></div>`;
+}
+
+function renderTripEnds(points) {
+  if (!tripEnded || points.length < 2) return;
+  const first = points[0];
+  const last = points[points.length - 1];
+
+  if (!startMarker) {
+    const icon = L.divIcon({
+      className: "trip-marker trip-start",
+      html: '<span class="badge">🌱</span>',
+      iconSize: [30, 30],
+      iconAnchor: [15, 15],
+      popupAnchor: [0, -16],
+    });
+    startMarker = L.marker([first.lat, first.lon], { icon, zIndexOffset: 600 })
+      .bindPopup(() => tripEndPopup("🌱", "startPop", first.ts))
+      .addTo(map);
+  } else startMarker.setLatLng([first.lat, first.lon]);
+
+  if (!endMarker) {
+    // anchored high so the flag floats just above the parked van
+    const icon = L.divIcon({
+      className: "trip-marker trip-end",
+      html: '<span class="badge">🏁</span>',
+      iconSize: [30, 30],
+      iconAnchor: [15, 52],
+      popupAnchor: [0, -54],
+    });
+    endMarker = L.marker([last.lat, last.lon], { icon, zIndexOffset: 2100 })
+      .bindPopup(() => tripEndPopup("🏁", "endPop", last.ts))
+      .addTo(map);
+  } else endMarker.setLatLng([last.lat, last.lon]);
 }
 
 // ----------------------------------------------------- overnight stays ---
@@ -207,7 +259,7 @@ function renderStays(points) {
       return `<div class="point-pop"><p class="head">🌙 ${t("stayTitle")}</p><p class="meta">${lines.join("<br>")}</p></div>`;
     });
     marker.addTo(stayLayer);
-    stayMarkers.set(key, { marker, nights: st.nights });
+    stayMarkers.set(key, { marker, nights: st.nights, firstTs: st.visits[0].startTs });
   }
 
   // spots that fell off the visible window (or got re-clustered) fade away
@@ -301,7 +353,9 @@ function renderNowCard(p) {
   if (p.batt != null) chips.push(`🔋 ${Math.round(p.batt)}%`);
   $("now-chips").innerHTML = chips.map((c) => `<span class="chip">${c}</span>`).join("");
 
-  $("now-updated").textContent = t("updated", { t: timeAgo(p.ts) });
+  $("now-updated").textContent = tripEnded
+    ? t("endedNote")
+    : t("updated", { t: timeAgo(p.ts) });
   $("now-card").hidden = false;
 }
 
@@ -326,6 +380,7 @@ const PHOTO_STEM = 12; // room under the frame for the gps dot
 const CLUSTER_PX = 64; // photos closer than this on screen huddle into a stack
 
 function renderPhotos(photos) {
+  if (playback.active) return; // don't spoil the reveal mid-replay
   photoCount = 0;
   unplacedPhotos = [];
 
@@ -547,6 +602,7 @@ document.addEventListener("keydown", (e) => {
     $("lightbox").hidden = true;
     $("gallery").hidden = true;
     $("stats-overlay").hidden = true;
+    stopPlayback();
   }
 });
 
@@ -665,6 +721,98 @@ $("van-btn").addEventListener("click", () => {
   map.flyTo([last.lat, last.lon], VAN_ZOOM, { duration: 1.2 });
 });
 
+// ------------------------------------------------------------- playback ---
+// replay the whole trip: the route draws itself back in while the van
+// drives it at constant speed, and photos & camps pop up as it passes them
+
+const PLAYBACK_MS = 45_000;
+const playback = { active: false, raf: 0, reveals: [] };
+
+// the growing part of the route, drawn over the dimmed full line
+const playLine = L.polyline([], {
+  color: "#f4a9c7", weight: 5, opacity: 0.95, lineCap: "round", lineJoin: "round", interactive: false,
+});
+
+function startPlayback() {
+  if (playback.active || latestPoints.length < 2) return;
+  const pts = latestPoints;
+  playback.active = true;
+  $("play-btn").textContent = "⏹";
+  map.closePopup();
+
+  // constant road speed: progress is by distance, not by wall-clock gaps
+  // (else every night at a campsite would be a long awkward pause)
+  const cum = [0];
+  for (let i = 1; i < pts.length; i++) cum.push(cum[i - 1] + haversineKm(pts[i - 1], pts[i]));
+  const total = cum[cum.length - 1] || 1;
+
+  // tuck away every photo & camp marker; each returns as the van drives past
+  playback.reveals = [];
+  for (const kept of photoMarkers.values())
+    playback.reveals.push({ ts: kept.entry.members[0].ts, layer: photoLayer, marker: kept.marker });
+  for (const kept of stayMarkers.values())
+    playback.reveals.push({ ts: kept.firstTs, layer: stayLayer, marker: kept.marker });
+  playback.reveals.sort((a, b) => a.ts - b.ts);
+  for (const r of playback.reveals) r.layer.removeLayer(r.marker);
+  let revealIdx = 0;
+
+  routeLine.setStyle({ opacity: 0.25 }); // the road ahead, faintly promised
+  playLine.setLatLngs([[pts[0].lat, pts[0].lon]]).addTo(map);
+  vanMarker.setLatLng([pts[0].lat, pts[0].lon]);
+  map.fitBounds(routeLine.getBounds().pad(0.15));
+
+  const chip = $("playback-chip");
+  chip.hidden = false;
+  $("now-card").hidden = true; // the stage belongs to the little van
+
+  const t0 = performance.now();
+  let seg = 0;
+  const drawn = [[pts[0].lat, pts[0].lon]]; // vertices passed so far + moving tip
+
+  const frame = (now) => {
+    const f = Math.min(1, (now - t0) / PLAYBACK_MS);
+    const dist = f * total;
+    while (seg < pts.length - 2 && cum[seg + 1] <= dist) {
+      seg++;
+      drawn.push([pts[seg].lat, pts[seg].lon]);
+    }
+    const a = pts[seg], b = pts[seg + 1];
+    const span = cum[seg + 1] - cum[seg];
+    const u = span > 0 ? Math.min(1, (dist - cum[seg]) / span) : 1;
+    const tip = [a.lat + (b.lat - a.lat) * u, a.lon + (b.lon - a.lon) * u];
+    playLine.setLatLngs([...drawn, tip]);
+    vanMarker.setLatLng(tip);
+
+    const ts = a.ts + (b.ts - a.ts) * u;
+    while (revealIdx < playback.reveals.length && playback.reveals[revealIdx].ts <= ts) {
+      const r = playback.reveals[revealIdx++];
+      r.layer.addLayer(r.marker);
+    }
+    chip.textContent = t("replayChip", { n: Math.floor((ts - pts[0].ts) / 86400) + 1, d: fmtDay(ts) });
+
+    if (f < 1) playback.raf = requestAnimationFrame(frame);
+    else stopPlayback();
+  };
+  playback.raf = requestAnimationFrame(frame);
+}
+
+function stopPlayback() {
+  if (!playback.active) return;
+  playback.active = false;
+  cancelAnimationFrame(playback.raf);
+  for (const r of playback.reveals) if (!r.layer.hasLayer(r.marker)) r.layer.addLayer(r.marker);
+  playback.reveals = [];
+  routeLine.setStyle({ opacity: 0.95 });
+  map.removeLayer(playLine);
+  const last = latestPoints[latestPoints.length - 1];
+  vanMarker.setLatLng([last.lat, last.lon]);
+  $("playback-chip").hidden = true;
+  $("now-card").hidden = false;
+  $("play-btn").textContent = "▶️";
+}
+
+$("play-btn").addEventListener("click", () => (playback.active ? stopPlayback() : startPlayback()));
+
 // ---------------------------------------------------------------- loops ---
 
 let cachedPhotos = [];
@@ -707,17 +855,20 @@ async function loadPhotos() {
 }
 
 (async () => {
-  // fire everything at once — photos render as soon as the route is in
-  // (harmless no-op response if no album is configured)
-  const cfgP = loadConfig();
+  // photos fetch in parallel (harmless no-op response if no album is
+  // configured), but config comes first: the route's first render needs to
+  // know whether the trip is still rolling or already a finished story
   const photosP = loadPhotos();
+  const cfg = await loadConfig();
+  tripEnded = Boolean(cfg.ended);
   await loadPoints();
   await photosP;
-  const cfg = await cfgP;
   if (cfg.hasAlbum) setInterval(loadPhotos, PHOTOS_EVERY_MS);
-  setInterval(loadPoints, POINTS_EVERY_MS);
-  // keep "last waved at us" fresh
-  setInterval(() => {
-    if (latestPoints.length) renderNowCard(latestPoints[latestPoints.length - 1]);
-  }, 30_000);
+  if (!tripEnded) {
+    setInterval(loadPoints, POINTS_EVERY_MS);
+    // keep "last waved at us" fresh
+    setInterval(() => {
+      if (latestPoints.length) renderNowCard(latestPoints[latestPoints.length - 1]);
+    }, 30_000);
+  }
 })();
