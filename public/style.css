@@ -39,7 +39,7 @@
     --chip-3: #55482a;
     --chip-4: #40365c;
     --map-bg: #1b1724;
-    --tile-filter: saturate(0.75) brightness(0.92) hue-rotate(-8deg);
+    --tile-filter: invert(1) hue-rotate(180deg) saturate(0.5) brightness(0.85) contrast(0.85);
   }
 }
 

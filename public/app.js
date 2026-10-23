@@ -32,17 +32,11 @@ function weatherLook(code) {
 const map = L.map("map", { zoomControl: false, attributionControl: true });
 L.control.zoom({ position: "bottomright" }).addTo(map);
 
-// tiles follow the system theme: sunny voyager by day, cozy dark by night 🌙
-const TILE_URLS = {
-  light: "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
-  dark: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
-};
-const darkQuery = window.matchMedia("(prefers-color-scheme: dark)");
-const tileLayer = L.tileLayer(TILE_URLS[darkQuery.matches ? "dark" : "light"], {
-  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>',
-  maxZoom: 20,
+// plain OSM tiles (carto now wants an API key) — style.css pastels them, and inverts them at night 🌙
+L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+  maxZoom: 19,
 }).addTo(map);
-darkQuery.addEventListener("change", (e) => tileLayer.setUrl(TILE_URLS[e.matches ? "dark" : "light"]));
 
 map.setView([54, 10], 4); // placeholder view until points arrive
 
